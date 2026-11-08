@@ -35,6 +35,10 @@ export interface ScrapeOptions {
   timeoutMs?: number
   /** Progress messages (for the dev CLI or a future progress bar). */
   log?: (message: string) => void
+  /** Called when the scrape moves from reading the listing to opening its gallery. */
+  onStage?: (stage: 'foundation') => void
+  /** Aborting closes the hidden window at once and rejects with a `cancelled` ScraperError. */
+  signal?: AbortSignal
 }
 
 const LOAD_TIMEOUT_MS = 30_000
@@ -92,6 +96,10 @@ export async function scrapeListing(
   const name = SITE_NAME[listing.site]
   const log = options.log ?? (() => {})
   const timeoutMs = options.timeoutMs ?? 60_000
+  const signal = options.signal
+  const cancelled = (): ScraperError =>
+    new ScraperError('cancelled', 'Survey cancelled.', listing.site)
+  if (signal?.aborted) throw cancelled()
 
   // No "persist:" prefix → an in-memory session that is never written to disk.
   const ses = session.fromPartition(`planboard-scrape-${randomUUID()}`, { cache: false })
@@ -122,6 +130,14 @@ export async function scrapeListing(
     }
   })
   const wc = win.webContents
+  // Cancel: destroying the window makes any pending load or page script reject straight away.
+  const onAbort = (): void => {
+    if (!win.isDestroyed()) win.destroy()
+  }
+  signal?.addEventListener('abort', onAbort, { once: true })
+  const checkCancel = (): void => {
+    if (signal?.aborted) throw cancelled()
+  }
   wc.setAudioMuted(true)
   wc.setWindowOpenHandler(() => ({ action: 'deny' }))
   // Never follow links (to other listings or anywhere else); redirects of the first load are fine.
@@ -156,18 +172,23 @@ export async function scrapeListing(
       }
       log(`Page load did not finish cleanly (${(err as Error).message}); continuing`)
     }
+    checkCancel()
     if (mainStatus !== null && mainStatus >= 400) throw httpError(listing.site, mainStatus)
     await sleep(SETTLE_MS)
+    checkCancel()
 
     for (const script of scraper.dismissPopupScripts) {
       log(`Pop-ups: ${await run<string>(script)}`)
       await sleep(POPUP_PAUSE_MS)
+      checkCancel()
     }
 
     log(`Foundation: opening the gallery`)
+    options.onStage?.('foundation')
     for (const script of scraper.openGalleryScripts) {
       log(`Gallery: ${await run<string>(script)}`)
       await sleep(GALLERY_PAUSE_MS)
+      checkCancel()
     }
 
     const deadline = Date.now() + timeoutMs
@@ -175,6 +196,7 @@ export async function scrapeListing(
     let idle = 0
     let stopReason = 'timed out'
     while (Date.now() < deadline) {
+      checkCancel()
       const progress = scraper.progress(await capture())
       if (progress.found !== lastFound) {
         log(`Gallery: found ${progress.found} / expected ${progress.expected ?? '?'}`)
@@ -194,14 +216,19 @@ export async function scrapeListing(
     }
     log(`Gallery: stopped (${stopReason})`)
 
+    checkCancel()
     const result = scraper.build(await capture())
     if (stopReason === 'timed out' && result.expectedPhotoCount !== null) {
-      if (result.photos.length < result.expectedPhotoCount) {
+      if (result.photos.length < result.expectedPhotoCount - result.duplicatePhotos) {
         result.warnings.push(`Stopped looking after ${Math.round(timeoutMs / 1000)} seconds.`)
       }
     }
     return result
+  } catch (err) {
+    if (signal?.aborted) throw cancelled()
+    throw err
   } finally {
+    signal?.removeEventListener('abort', onAbort)
     ses.webRequest.onCompleted(null)
     ses.removeListener('will-download', onDownload)
     if (!win.isDestroyed()) win.destroy()

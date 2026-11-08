@@ -114,6 +114,21 @@ function networkFailure(saved: number): CaptureFailure {
   }
 }
 
+/** An outcome for a run that never started (bad input, another capture running). */
+export function failureOutcome(error: CaptureFailure): CaptureOutcome {
+  return {
+    status: 'failed',
+    listing: null,
+    counts: emptyCounts(),
+    notes: [],
+    warnings: [],
+    detailsFile: 'not-written',
+    error,
+    rejected: [],
+    durationMs: 0
+  }
+}
+
 const emptyCounts = (): CaptureCounts => ({
   found: 0,
   listed: null,

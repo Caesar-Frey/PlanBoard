@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { runScrapeCli } from './cli'
 import { scrapeUrlFromArgv } from './cliArgs'
 import { registerIpc } from './ipc'
+import { handleMediaProtocol, registerMediaScheme } from './mediaProtocol'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -53,10 +54,12 @@ function createWindow(): BrowserWindow {
 }
 
 function startApp(): void {
+  registerMediaScheme()
   app
     .whenReady()
     .then(() => {
       const ctx = registerIpc(() => mainWindow)
+      handleMediaProtocol(() => ctx.library.root)
       console.info(`[planboard] library: ${ctx.library.root}`)
       console.info(`[planboard] database opened: ${ctx.library.dbPath}`)
 
