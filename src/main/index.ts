@@ -1,5 +1,7 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
+import { runScrapeCli } from './cli'
+import { scrapeUrlFromArgv } from './cliArgs'
 import { registerIpc } from './ipc'
 
 let mainWindow: BrowserWindow | null = null
@@ -50,30 +52,53 @@ function createWindow(): BrowserWindow {
   return win
 }
 
-app
-  .whenReady()
-  .then(() => {
-    const ctx = registerIpc(() => mainWindow)
-    console.info(`[planboard] library: ${ctx.library.root}`)
-    console.info(`[planboard] database opened: ${ctx.library.dbPath}`)
+function startApp(): void {
+  app
+    .whenReady()
+    .then(() => {
+      const ctx = registerIpc(() => mainWindow)
+      console.info(`[planboard] library: ${ctx.library.root}`)
+      console.info(`[planboard] database opened: ${ctx.library.dbPath}`)
 
-    mainWindow = createWindow()
-    mainWindow.on('closed', () => (mainWindow = null))
+      mainWindow = createWindow()
+      mainWindow.on('closed', () => (mainWindow = null))
 
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) {
-        mainWindow = createWindow()
-        mainWindow.on('closed', () => (mainWindow = null))
-      }
+      app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) {
+          mainWindow = createWindow()
+          mainWindow.on('closed', () => (mainWindow = null))
+        }
+      })
+      app.on('will-quit', () => ctx.close())
     })
-    app.on('will-quit', () => ctx.close())
-  })
-  .catch((err: unknown) => {
-    console.error('[planboard] failed to start', err)
-    app.exit(1)
-  })
+    .catch((err: unknown) => {
+      console.error('[planboard] failed to start', err)
+      app.exit(1)
+    })
 
-// macOS convention: the app stays running when its last window closes.
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
-})
+  // macOS convention: the app stays running when its last window closes.
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit()
+  })
+}
+
+/** `--scrape <url>`: the dev CLI (see cli.ts). No main window, no database, no settings. */
+function startScrapeCli(url: string): void {
+  // Separate, throwaway profile so a running copy of the app is never touched.
+  app.setPath('userData', join(app.getPath('temp'), 'planboard-scrape-cli'))
+  app.dock?.hide()
+  // The hidden scraping window closing must not quit before the result is printed.
+  app.on('window-all-closed', () => undefined)
+  app
+    .whenReady()
+    .then(() => runScrapeCli(url))
+    .then((code) => app.exit(code))
+    .catch((err: unknown) => {
+      console.error('[planboard] scrape CLI failed', err)
+      app.exit(1)
+    })
+}
+
+const scrapeUrl = scrapeUrlFromArgv(process.argv)
+if (scrapeUrl !== null) startScrapeCli(scrapeUrl)
+else startApp()

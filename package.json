@@ -9,6 +9,7 @@
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
     "start": "electron-vite preview",
+    "scrape": "electron-vite build --logLevel warn && electron . --scrape",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",

@@ -23,9 +23,11 @@ Run all of these from the project folder (`cd "/Users/sandbox2/Documents/Vibe co
 - `npm run lint` — ESLint (TypeScript rules, React hooks rules, no stray `console.log`).
 - `npm run format` — rewrites files with Prettier (`npm run format:check` only reports).
 - `npm run build` — typechecks, then compiles everything into `out/`. `npm start` runs that build.
+- `npm run scrape -- "<listing URL>"` — dev test for the scrapers. Builds into `out/`, then runs Electron with `--scrape <url>`: no app window, no dock icon, no database or settings (it uses a throwaway profile in the temp folder). It opens the listing in a hidden window, prints the `ScrapeResult` as JSON and then `found X / expected Y` on stdout; progress (`[scrape] ...`) and warnings go to stderr. Exit code 0 = success, 1 = scrape error, 2 = no URL. Add `-s` (`npm run -s scrape -- ...`) to hide npm's own header, e.g. `npm run -s scrape -- "<url>" > result.json`. It loads the live site, so use it sparingly: one listing at a time, never search pages.
 - Packaging (`.dmg`) is milestone 7: `npx electron-builder --mac` using `electron-builder.yml`.
 
 ## Where things live
 - `src/shared/ipc.ts` — IPC channel names and types used by main, preload and renderer.
-- `src/main/` — app window (`index.ts`), IPC handlers (`ipc.ts`), settings (`settings.ts`, stored in `~/Library/Application Support/planboard/settings.json`), library folder + db (`library.ts`, `db/`).
+- `src/main/` — app window (`index.ts`), IPC handlers (`ipc.ts`), settings (`settings.ts`, stored in `~/Library/Application Support/planboard/settings.json`), library folder + db (`library.ts`, `db/`), the `--scrape` dev CLI (`cli.ts`, `cliArgs.ts`).
+- `src/main/scrapers/` — `types.ts` (shared contracts, `ScraperError`), `detect.ts` (URL → site + id, folder names), `property24.ts` / `privateproperty.ts` (all site-specific URL patterns, selectors and page scripts, plus pure parsers), `driver.ts` (shared hidden-window driver), `manual.ts` (pasted ids/URLs fallback), `html.ts` (site-neutral HTML helpers). Fixtures for their tests are in `test/fixtures/<site>/` (trimmed real pages, agent names redacted; no images).
 - `src/renderer/src/styles/tokens.css` — the only file allowed to contain raw colour values.
