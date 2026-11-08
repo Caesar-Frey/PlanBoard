@@ -55,6 +55,9 @@ function parseP24(list: string[]): ManualParseResult {
   return { photos: uniqueBy(ids, (id) => id).map(p24PhotoFromId), rejected }
 }
 
+/** Private Property photo keys seen so far are 22 letters and digits (a short UUID). */
+const PP_BARE_KEY = /^(?=.*\d)(?=.*[A-Za-z])[A-Za-z0-9]{20,24}$/
+
 function parsePp(list: string[], listingId: string | undefined): ManualParseResult {
   const refs: { listingId: string; photoKey: string }[] = []
   const rejected: ManualRejection[] = []
@@ -66,7 +69,7 @@ function parsePp(list: string[], listingId: string | undefined): ManualParseResu
       } else {
         refs.push(ref)
       }
-    } else if (listingId && /^[A-Za-z0-9_-]{8,}$/.test(token)) {
+    } else if (listingId && PP_BARE_KEY.test(token)) {
       refs.push({ listingId, photoKey: token })
     } else {
       rejected.push({

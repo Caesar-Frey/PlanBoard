@@ -89,6 +89,14 @@ describe('parseManualInput: Private Property', () => {
     expect(rejected.map((r) => r.token)).toEqual(['hi'])
   })
 
+  it('does not mistake ordinary words for bare photo keys (each would cost requests)', () => {
+    const { photos, rejected } = parseManualInput('hello-there kitchen_island Photographs', 'pp', {
+      ppImageListingId: '12158393'
+    })
+    expect(photos).toEqual([])
+    expect(rejected).toHaveLength(3)
+  })
+
   it('rejects bare keys without a listing id, and other listings’ photos when one is given', () => {
     expect(parseManualInput('aaa', 'pp').rejected[0]?.reason).toMatch(/full image address/)
     const { photos, rejected } = parseManualInput(`${url('aaa')} ${url('zzz', '999')}`, 'pp', {

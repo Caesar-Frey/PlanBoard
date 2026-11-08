@@ -193,7 +193,8 @@ function manualResult(
     site: listing.site,
     externalId: listing.externalId,
     url: listing.url,
-    expectedPhotoCount: null,
+    // Surveyed before: keep judging completeness against the stored (unique) count.
+    expectedPhotoCount: existing?.photo_count_expected ?? null,
     duplicatePhotos: 0,
     photos: parsed.photos,
     details,
@@ -229,13 +230,10 @@ export async function runCapture(
       durationMs: Math.max(0, deps.now() - startedAt),
       ...o
     }
-    const label =
-      outcome.status === 'complete'
-        ? 'Handover: done'
-        : outcome.status === 'cancelled'
-          ? 'Cancelled'
-          : 'Stopped'
-    report('handover', label, counts.onDisk, counts.found)
+    // Only a finished run reaches Handover; a cancelled or failed one stays on its stage.
+    if (outcome.status === 'complete') {
+      report('handover', 'Handover: done', counts.onDisk + counts.removed, counts.found)
+    }
     return outcome
   }
 

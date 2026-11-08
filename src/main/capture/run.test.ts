@@ -216,14 +216,16 @@ describe('runCapture', () => {
       ac.abort()
       throw new ScraperError('cancelled', 'Cancelled.', 'p24')
     }
+    const events: CaptureProgress[] = []
     const out = await runCapture(
       makeDeps(scrape, imageFetch()),
       { kind: 'scrape', url: URL24 },
       ac.signal,
-      () => {}
+      (p) => events.push(p)
     )
     expect(out.status).toBe('cancelled')
     expect(out.listing).toBeNull()
+    expect(events.map((e) => e.stage)).toEqual(['survey'])
     expect(existsSync(join(root, 'listings'))).toBe(false)
   })
 
@@ -351,6 +353,30 @@ describe('runCapture', () => {
       )
       expect(again.listing?.folderName).toBe('Listing_P24-115212892')
       expect(again.counts.onDisk).toBe(2)
+    })
+
+    it('keeps the stated photo count and details of a listing surveyed before', async () => {
+      await runCapture(
+        makeDeps(async () => scrapeResult(['1', '2'], { expectedPhotoCount: 3 }), imageFetch()),
+        { kind: 'scrape', url: URL24 },
+        new AbortController().signal,
+        () => {}
+      )
+      const fetch = imageFetch()
+      const out = await runCapture(
+        makeDeps(async () => scrapeResult([]), fetch),
+        { kind: 'manual', url: URL24, text: '1 3', suburb: 'Ignored' },
+        new AbortController().signal,
+        () => {}
+      )
+      expect(fetch.calls).toEqual(['https://images.prop24.com/3'])
+      expect(out.listing?.folderName).toBe(FOLDER)
+      expect(out.counts).toMatchObject({ listed: 3, expected: 3, onDisk: 3, alreadyHad: 1 })
+      expect(out.status).toBe('complete')
+      expect(findListing(db, 'p24', '115212892')!.price).toBe('R 3 450 000')
+      expect(readFileSync(join(folder(), 'Property_Details.txt'), 'utf8')).toMatch(
+        /3 in this folder · listing shows 3/
+      )
     })
 
     it('fails clearly when nothing pasted is usable', async () => {
