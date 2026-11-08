@@ -3,6 +3,7 @@
  * This file must stay free of runtime imports (no Node, no Electron, no DOM),
  * so every process can import it safely.
  */
+import type { ListingFieldErrors, ListingFields, ListingFieldsInput } from './listingFields'
 
 export interface Settings {
   /** Absolute path of the library root folder (holds planboard.db and listings/). */
@@ -166,6 +167,89 @@ export interface RecentListing {
   createdAt: number
   /** `planboard-media://` URL of the first photo, or null if none. */
   thumbnailUrl: string | null
+}
+
+// ---------------------------------------------------------------------------------------------
+// Listing view (milestone 4)
+// ---------------------------------------------------------------------------------------------
+
+export interface ListingPhoto {
+  id: number
+  fileName: string
+  /** `planboard-media://` URL. */
+  url: string
+  room: string | null
+}
+
+export interface ListingNote {
+  personId: number
+  /** Null or empty: no note yet. */
+  text: string | null
+  updatedAt: number
+}
+
+/** `edited`: changed outside PlanBoard (checksum mismatch), so saving asks first. */
+export type DetailsFileState = 'missing' | 'ours' | 'edited'
+
+export interface ListingView {
+  id: number
+  site: SiteId
+  siteName: string
+  externalId: string
+  url: string
+  /** Folder name inside `<library>/listings/`. */
+  folderName: string
+  fields: ListingFields
+  photosExpected: number | null
+  createdAt: number
+  /** Last survey; null for listings surveyed before milestone 4. */
+  surveyedAt: number | null
+  /** Photos not removed, in gallery order. */
+  photos: ListingPhoto[]
+  detailsFile: DetailsFileState
+  notes: ListingNote[]
+}
+
+export interface TrashPhotosRequest {
+  listingId: number
+  photoIds: number[]
+}
+
+export interface TrashReport {
+  /** Moved to the macOS Trash. */
+  trashed: number
+  /** The file was already gone; just marked removed. */
+  alreadyMissing: number
+  failed: { photoId: number; fileName: string; reason: string }[]
+  /** Fresh listing after the removal. */
+  view: ListingView
+}
+
+/** `ask`: stop if Property_Details.txt was edited by hand. `keep`: save to the library only. */
+export type DetailsFileMode = 'ask' | 'overwrite' | 'keep'
+
+export interface SaveDetailsRequest {
+  listingId: number
+  fields: ListingFieldsInput
+  fileMode: DetailsFileMode
+}
+
+export type SaveDetailsOutcome =
+  | {
+      status: 'saved'
+      detailsFile: 'written' | 'kept-edited' | 'not-written'
+      warning: string | null
+      view: ListingView
+    }
+  | { status: 'invalid'; errors: ListingFieldErrors }
+  /** Nothing was saved: ask the user whether to overwrite the hand-edited file. */
+  | { status: 'file-edited' }
+
+export interface SaveNoteRequest {
+  listingId: number
+  /** Must be the person currently tagging; main refuses anyone else. */
+  personId: number
+  text: string
 }
 
 /** IPC channel names. One place, so main and preload can't drift apart. */

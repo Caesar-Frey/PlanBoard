@@ -1,5 +1,6 @@
 -- PlanBoard schema (brief section 5). Idempotent: safe to run on every open.
 -- Times are Unix epoch milliseconds.
+-- This is always the newest shape; older libraries are stepped up by migrate.ts.
 
 CREATE TABLE IF NOT EXISTS people (
   id     INTEGER PRIMARY KEY,
@@ -29,6 +30,10 @@ CREATE TABLE IF NOT EXISTS listings (
   folder_path          TEXT NOT NULL,
   photo_count_expected INTEGER,
   created_at           INTEGER NOT NULL,
+  -- Version 2: what the last survey saw, for regenerating Property_Details.txt.
+  photo_count_listed   INTEGER,
+  photo_duplicates     INTEGER,
+  surveyed_at          INTEGER,
   UNIQUE (site, external_id)
 );
 

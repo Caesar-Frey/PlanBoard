@@ -9,6 +9,7 @@ import { countPhotos, findListing } from '../db/listings'
 import { p24PhotoFromId } from '../scrapers/property24'
 import { EMPTY_DETAILS, ScraperError, type ScrapeResult } from '../scrapers/types'
 import type { FetchLike } from './download'
+import { trashPhotos } from '../listing/trash'
 import { runCapture, type CaptureDeps } from './run'
 
 const URL24 = 'https://www.property24.com/for-sale/drummond/hillcrest/kwazulu-natal/7049/115212892'
@@ -169,8 +170,66 @@ describe('runCapture', () => {
     )
     expect(fetch.calls).toEqual(['https://images.prop24.com/2'])
     expect(out.detailsFile).toBe('written')
-    expect(readFileSync(join(folder(), 'Property_Details.txt'), 'utf8')).toContain('R 9')
-    expect(findListing(db, 'p24', '115212892')!.price).toBe('R 9')
+    const text = readFileSync(join(folder(), 'Property_Details.txt'), 'utf8')
+    // Re-survey rule: a stored value is never overwritten (only empty fields are filled).
+    expect(text).toContain('R 3 450 000')
+    expect(text).toMatch(/^Photos:\s+2 in this folder/m)
+    expect(findListing(db, 'p24', '115212892')!.price).toBe('R 3 450 000')
+  })
+
+  it('a re-survey fills empty fields only, and the details file shows the merged values', async () => {
+    await runCapture(
+      makeDeps(async () => scrapeResult(['1']), imageFetch()),
+      { kind: 'scrape', url: URL24 },
+      new AbortController().signal,
+      () => {}
+    )
+    const id = findListing(db, 'p24', '115212892')!.id
+    // The user edits the title in the listing view and leaves the agent empty.
+    db.prepare("UPDATE listings SET title = 'Our favourite' WHERE id = ?").run(id)
+    const out = await runCapture(
+      makeDeps(
+        async () =>
+          scrapeResult(['1'], {
+            details: {
+              ...EMPTY_DETAILS,
+              title: 'Scraped title',
+              suburb: 'Hillcrest',
+              price: 'R 9',
+              agent: 'New Agent'
+            }
+          }),
+        imageFetch()
+      ),
+      { kind: 'scrape', url: URL24 },
+      new AbortController().signal,
+      () => {}
+    )
+    expect(findListing(db, 'p24', '115212892')).toMatchObject({
+      title: 'Our favourite',
+      price: 'R 3 450 000',
+      agent: 'New Agent'
+    })
+    expect(out.listing?.title).toBe('Our favourite')
+    const text = readFileSync(join(folder(), 'Property_Details.txt'), 'utf8')
+    expect(text).toMatch(/^Title:\s+Our favourite$/m)
+    expect(text).toMatch(/^Agent:\s+New Agent$/m)
+    expect(text).not.toContain('R 9')
+  })
+
+  it('stores the listed count, duplicates and survey time for later regeneration', async () => {
+    await runCapture(
+      makeDeps(
+        async () => scrapeResult(['1', '2', '3'], { expectedPhotoCount: 4, duplicatePhotos: 1 }),
+        imageFetch()
+      ),
+      { kind: 'scrape', url: URL24 },
+      new AbortController().signal,
+      () => {}
+    )
+    const row = findListing(db, 'p24', '115212892')!
+    expect(row).toMatchObject({ photo_count_listed: 4, photo_duplicates: 1 })
+    expect(row.surveyed_at).toEqual(expect.any(Number))
   })
 
   it('treats the unique count as complete when the listing repeats a photo', async () => {
@@ -311,6 +370,46 @@ describe('runCapture', () => {
     expect(fetch.calls).toEqual([])
     expect(out.counts).toMatchObject({ removed: 1, alreadyHad: 1, onDisk: 1 })
     expect(out.status).toBe('complete')
+  })
+
+  it('photos moved to the Trash from the listing view are never downloaded again', async () => {
+    await runCapture(
+      makeDeps(async () => scrapeResult(['1', '2', '3']), imageFetch()),
+      { kind: 'scrape', url: URL24 },
+      new AbortController().signal,
+      () => {}
+    )
+    const id = findListing(db, 'p24', '115212892')!.id
+    const photoIds = (
+      db
+        .prepare("SELECT id FROM photos WHERE file_name IN ('image_1.jpg', 'image_3.jpg')")
+        .all() as { id: number }[]
+    ).map((r) => r.id)
+    const trashed = await trashPhotos(
+      {
+        db,
+        libraryRoot: root,
+        trashItem: async (p) => rmSync(p),
+        now: () => 77
+      },
+      id,
+      photoIds
+    )
+    expect(trashed.trashed).toHaveLength(2)
+
+    const fetch = imageFetch()
+    const out = await runCapture(
+      makeDeps(async () => scrapeResult(['1', '2', '3', '4']), fetch),
+      { kind: 'scrape', url: URL24 },
+      new AbortController().signal,
+      () => {}
+    )
+    expect(fetch.calls).toEqual(['https://images.prop24.com/4'])
+    expect(out.counts).toMatchObject({ removed: 2, alreadyHad: 1, downloaded: 1, onDisk: 2 })
+    expect(images()).toEqual(['image_2.jpg', 'image_4.jpg'])
+    expect(readFileSync(join(folder(), 'Property_Details.txt'), 'utf8')).toMatch(
+      /^Photos:\s+2 in this folder/m
+    )
   })
 
   describe('manual fallback', () => {

@@ -1,13 +1,15 @@
 import Database from 'better-sqlite3'
+import { migrate } from './migrate'
 import schemaSql from './schema.sql?raw'
 import { seedPeople } from './queries'
 
-export const SCHEMA_VERSION = 1
+export { SCHEMA_VERSION } from './migrate'
 
 export type DB = Database.Database
 
 /**
- * Opens (or creates) planboard.db and applies the schema. Idempotent.
+ * Opens (or creates) planboard.db, applies the schema and steps an older library up to the
+ * current version (migrate.ts). Idempotent.
  * Journal mode stays at SQLite's default (DELETE) rather than WAL, so the
  * library folder is a single self-contained file that is safe to copy or sync.
  */
@@ -17,7 +19,7 @@ export function openDatabase(file: string): DB {
   db.transaction(() => {
     db.exec(schemaSql)
     seedPeople(db)
-    db.pragma(`user_version = ${SCHEMA_VERSION}`)
+    migrate(db)
   })()
   return db
 }

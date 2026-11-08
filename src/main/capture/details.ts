@@ -19,6 +19,8 @@ export interface DetailsInput {
   details: ListingDetails
   counts: Pick<CaptureCounts, 'found' | 'listed' | 'duplicates' | 'expected' | 'onDisk'>
   surveyedAt: Date
+  /** When this copy of the file is written. Defaults to `surveyedAt` (a capture). */
+  writtenAt?: Date
 }
 
 const NOT_LISTED = 'Not listed'
@@ -77,7 +79,7 @@ export function formatPropertyDetails(input: DetailsInput): string {
     '-----------\n' +
     `${description}\n\n`
   const footer =
-    `— Written by PlanBoard on ${formatDate(input.surveyedAt)}. Edit freely: once this file ` +
+    `— Written by PlanBoard on ${formatDate(input.writtenAt ?? input.surveyedAt)}. Edit freely: once this file ` +
     `is changed, surveying the listing again leaves it as it is. [planboard:${checksum(body)}] —`
   return `${body}${footer}\n`
 }

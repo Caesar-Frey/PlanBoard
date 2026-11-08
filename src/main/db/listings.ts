@@ -9,6 +9,12 @@ export interface ListingRecord extends ListingDetails {
   url: string
   folder_path: string
   photo_count_expected: number | null
+  /** Photo count the listing page stated on the last survey (null: not stated / not known). */
+  photo_count_listed?: number | null
+  /** How many of those were repeats of another photo. */
+  photo_duplicates?: number | null
+  /** When the listing was last surveyed. `created_at` is the first time. */
+  surveyed_at?: number | null
   created_at: number
 }
 
@@ -29,7 +35,7 @@ export interface RecentRow extends ListingRow {
   first_photo: string | null
 }
 
-const DETAIL_COLUMNS = [
+export const DETAIL_COLUMNS = [
   'title',
   'price',
   'suburb',
@@ -46,14 +52,39 @@ const DETAIL_COLUMNS = [
   'agency'
 ] as const satisfies readonly (keyof ListingDetails)[]
 
-const UPDATABLE = ['url', ...DETAIL_COLUMNS, 'folder_path', 'photo_count_expected'] as const
-const INSERT_COLUMNS = ['site', 'external_id', ...UPDATABLE, 'created_at'] as const
+const FACT_COLUMNS = ['photo_count_listed', 'photo_duplicates', 'surveyed_at'] as const
+const INSERT_COLUMNS = [
+  'site',
+  'external_id',
+  'url',
+  ...DETAIL_COLUMNS,
+  'folder_path',
+  'photo_count_expected',
+  ...FACT_COLUMNS,
+  'created_at'
+] as const
 
+const isEmpty = (col: string): string => `(listings.${col} IS NULL OR TRIM(listings.${col}) = '')`
+
+/**
+ * Re-survey merge rule (agreed with the user): a detail field is only filled in when it is
+ * empty in the library. A value that is there (scraped earlier or typed in the listing view) is
+ * never overwritten. The survey facts are refreshed, keeping the old value when this survey
+ * didn't find one.
+ */
 const UPSERT_SQL =
   `INSERT INTO listings (${INSERT_COLUMNS.join(', ')}) ` +
   `VALUES (${INSERT_COLUMNS.map((c) => `@${c}`).join(', ')}) ` +
   `ON CONFLICT (site, external_id) DO UPDATE SET ` +
-  UPDATABLE.map((c) => `${c} = excluded.${c}`).join(', ') +
+  [
+    'url = excluded.url',
+    'folder_path = excluded.folder_path',
+    'photo_count_expected = excluded.photo_count_expected',
+    ...FACT_COLUMNS.map((c) => `${c} = COALESCE(excluded.${c}, listings.${c})`),
+    ...DETAIL_COLUMNS.map(
+      (c) => `${c} = CASE WHEN ${isEmpty(c)} THEN excluded.${c} ELSE listings.${c} END`
+    )
+  ].join(', ') +
   ' RETURNING id'
 
 /** Inserts or updates by (site, external_id). Keeps the id and the first `created_at`. */
@@ -61,6 +92,22 @@ export function upsertListing(db: DB, record: ListingRecord): number {
   const params = Object.fromEntries(INSERT_COLUMNS.map((c) => [c, record[c] ?? null]))
   const row = db.prepare(UPSERT_SQL).get(params) as { id: number }
   return row.id
+}
+
+const UPDATE_DETAILS_SQL = `UPDATE listings SET ${DETAIL_COLUMNS.map((c) => `${c} = @${c}`).join(', ')} WHERE id = @id`
+
+/** The listing view's Save: replaces every detail field. Throws for an unknown id. */
+export function updateListingDetails(db: DB, id: number, details: ListingDetails): void {
+  const params = Object.fromEntries(DETAIL_COLUMNS.map((c) => [c, details[c] ?? null]))
+  const info = db.prepare(UPDATE_DETAILS_SQL).run({ ...params, id })
+  if (info.changes !== 1) throw new Error(`No listing with id ${id}`)
+}
+
+/** Just the detail fields of a row. */
+export function detailsOf(row: ListingRow): ListingDetails {
+  return Object.fromEntries(
+    DETAIL_COLUMNS.map((c) => [c, row[c] ?? null])
+  ) as unknown as ListingDetails
 }
 
 export function findListing(db: DB, site: Site, externalId: string): ListingRow | undefined {
@@ -110,6 +157,45 @@ export function removedFileNames(db: DB, listingId: number): Set<string> {
     .prepare('SELECT file_name FROM photos WHERE listing_id = ? AND deleted_at IS NOT NULL')
     .all(listingId) as { file_name: string }[]
   return new Set(rows.map((r) => r.file_name))
+}
+
+export interface ListingPhotoRow {
+  id: number
+  file_name: string
+  room: string | null
+}
+
+/** Photos still in the listing (not removed), in the order they were recorded (gallery order). */
+export function listListingPhotos(db: DB, listingId: number): ListingPhotoRow[] {
+  return db
+    .prepare(
+      `SELECT id, file_name, room FROM photos
+       WHERE listing_id = ? AND deleted_at IS NULL ORDER BY id`
+    )
+    .all(listingId) as ListingPhotoRow[]
+}
+
+export interface PhotoFileRow {
+  id: number
+  listing_id: number
+  file_name: string
+  deleted_at: number | null
+}
+
+export function getPhotos(db: DB, ids: readonly number[]): PhotoFileRow[] {
+  const get = db.prepare('SELECT id, listing_id, file_name, deleted_at FROM photos WHERE id = ?')
+  return ids.flatMap((id) => {
+    const row = get.get(id) as PhotoFileRow | undefined
+    return row ? [row] : []
+  })
+}
+
+/** Marks a photo as removed by the user. Capture never downloads it again (removedFileNames). */
+export function markPhotoDeleted(db: DB, photoId: number, at: number): void {
+  db.prepare('UPDATE photos SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL').run(
+    at,
+    photoId
+  )
 }
 
 export function countPhotos(db: DB, listingId: number): number {

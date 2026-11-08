@@ -8,7 +8,9 @@ import {
   getListing,
   listRecentListings,
   recordPhotos,
+  listListingPhotos,
   removedFileNames,
+  updateListingDetails,
   upsertListing,
   type ListingRecord
 } from './listings'
@@ -46,13 +48,60 @@ describe('upsertListing', () => {
     })
   })
 
-  it('updates details on re-run, keeping the id and the first-surveyed date', () => {
-    const id = upsertListing(db, record())
-    const again = upsertListing(db, record({ price: 'R 2', bedrooms: 4, created_at: 9999 }))
+  it('re-run keeps the id and the first-surveyed date, and refreshes survey facts', () => {
+    const id = upsertListing(db, record({ photo_count_listed: 64, photo_duplicates: 1 }))
+    const again = upsertListing(
+      db,
+      record({ created_at: 9999, photo_count_expected: 70, surveyed_at: 9999 })
+    )
     expect(again).toBe(id)
     const row = findListing(db, 'p24', '115212892')!
-    expect(row).toMatchObject({ id, price: 'R 2', bedrooms: 4, created_at: 1000 })
+    expect(row).toMatchObject({
+      id,
+      created_at: 1000,
+      surveyed_at: 9999,
+      photo_count_expected: 70,
+      // Not stated this time: keep what the earlier survey found.
+      photo_count_listed: 64,
+      photo_duplicates: 1
+    })
     expect(db.prepare('SELECT COUNT(*) AS n FROM listings').get()).toEqual({ n: 1 })
+  })
+
+  it('re-run only fills fields that are empty; it never overwrites a value', () => {
+    const id = upsertListing(
+      db,
+      record({ price: 'R 1', suburb: 'Hillcrest', bedrooms: 3, city: null, agent: '  ' })
+    )
+    upsertListing(
+      db,
+      record({
+        price: 'R 2',
+        suburb: 'Elsewhere',
+        bedrooms: 4,
+        bathrooms: 2.5,
+        city: 'Durban',
+        agent: 'Sam Agent',
+        title: null
+      })
+    )
+    expect(getListing(db, id)).toMatchObject({
+      price: 'R 1',
+      suburb: 'Hillcrest',
+      bedrooms: 3,
+      title: 'House',
+      // Empty before, so the re-survey fills them in.
+      bathrooms: 2.5,
+      city: 'Durban',
+      agent: 'Sam Agent'
+    })
+  })
+
+  it('a value the user cleared is filled again by a re-survey', () => {
+    const id = upsertListing(db, record({ price: 'R 1' }))
+    updateListingDetails(db, id, { ...EMPTY_DETAILS, title: 'Mine' })
+    upsertListing(db, record({ price: 'R 2', title: 'Theirs' }))
+    expect(getListing(db, id)).toMatchObject({ title: 'Mine', price: 'R 2' })
   })
 
   it('keeps the same external id on two sites apart', () => {
@@ -136,5 +185,48 @@ describe('listRecentListings', () => {
       tagged_photos: 2,
       first_photo: 'image_9.jpg'
     })
+  })
+})
+
+describe('updateListingDetails', () => {
+  it('replaces every detail field and nothing else', () => {
+    const id = upsertListing(db, record({ price: 'R 1', bedrooms: 3 }))
+    updateListingDetails(db, id, {
+      ...EMPTY_DETAILS,
+      title: 'Edited',
+      price: null,
+      bedrooms: 5,
+      description: 'Ours'
+    })
+    expect(getListing(db, id)).toMatchObject({
+      title: 'Edited',
+      price: null,
+      bedrooms: 5,
+      suburb: null,
+      description: 'Ours',
+      folder_path: 'listings/Hillcrest_P24-115212892',
+      photo_count_expected: 63
+    })
+  })
+
+  it('throws for an unknown listing', () => {
+    expect(() => updateListingDetails(db, 99, EMPTY_DETAILS)).toThrow()
+  })
+})
+
+describe('listListingPhotos', () => {
+  it('lists the photos still in the folder, in the order they were recorded', () => {
+    const id = upsertListing(db, record())
+    recordPhotos(db, id, [
+      { file_name: 'image_9.jpg', source_url: 'a' },
+      { file_name: 'image_1.jpg', source_url: 'b' },
+      { file_name: 'image_5.jpg', source_url: 'c' }
+    ])
+    db.prepare("UPDATE photos SET deleted_at = 1 WHERE file_name = 'image_1.jpg'").run()
+    db.prepare("UPDATE photos SET room = 'Kitchen' WHERE file_name = 'image_5.jpg'").run()
+    expect(listListingPhotos(db, id).map((p) => [p.file_name, p.room])).toEqual([
+      ['image_9.jpg', null],
+      ['image_5.jpg', 'Kitchen']
+    ])
   })
 })

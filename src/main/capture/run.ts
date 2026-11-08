@@ -25,11 +25,12 @@ import {
 import type { DB } from '../db'
 import {
   countPhotos,
+  detailsOf,
   findListing,
+  getListing,
   recordPhotos,
   removedFileNames,
   upsertListing,
-  type ListingRow,
   type PhotoRecord
 } from '../db/listings'
 import { listingFolderPath } from '../pathGuard'
@@ -41,7 +42,6 @@ import {
   EMPTY_DETAILS,
   MANUAL_FALLBACK_HINT,
   ScraperError,
-  type ListingDetails,
   type ParsedListingUrl,
   type ScrapedPhoto,
   type ScrapeResult
@@ -142,14 +142,6 @@ const emptyCounts = (): CaptureCounts => ({
   onDisk: 0
 })
 
-function detailsOf(row: ListingRow): ListingDetails {
-  const out = { ...EMPTY_DETAILS }
-  for (const key of Object.keys(EMPTY_DETAILS) as (keyof ListingDetails)[]) {
-    ;(out as Record<string, unknown>)[key] = row[key] ?? null
-  }
-  return out
-}
-
 /** Turns pasted text into a ScrapeResult-shaped photo list. Throws when nothing is usable. */
 function manualResult(
   db: DB,
@@ -193,9 +185,9 @@ function manualResult(
     site: listing.site,
     externalId: listing.externalId,
     url: listing.url,
-    // Surveyed before: keep judging completeness against the stored (unique) count.
-    expectedPhotoCount: existing?.photo_count_expected ?? null,
-    duplicatePhotos: 0,
+    // Surveyed before: keep judging completeness against what that survey saw.
+    expectedPhotoCount: existing?.photo_count_listed ?? existing?.photo_count_expected ?? null,
+    duplicatePhotos: existing?.photo_count_listed != null ? (existing.photo_duplicates ?? 0) : 0,
     photos: parsed.photos,
     details,
     warnings: [],
@@ -287,6 +279,9 @@ export async function runCapture(
         url: result.url,
         folder_path: folderRel,
         photo_count_expected: counts.expected ?? existing?.photo_count_expected ?? null,
+        photo_count_listed: counts.listed,
+        photo_duplicates: counts.listed !== null ? counts.duplicates : null,
+        surveyed_at: deps.now(),
         created_at: deps.now()
       })
     )()
@@ -301,13 +296,17 @@ export async function runCapture(
       }
     })
   }
+  // A re-survey only fills empty fields (upsertListing), so the file and the summary use the
+  // merged values from the db, not the freshly scraped ones.
+  const stored = getListing(db, listingId)
+  const details = stored ? detailsOf(stored) : result.details
   const listingRef = {
     id: listingId,
     site: result.site,
     externalId: result.externalId,
     url: result.url,
-    title: result.details.title,
-    suburb: result.details.suburb,
+    title: details.title,
+    suburb: details.suburb,
     folderName
   }
 
@@ -426,7 +425,7 @@ export async function runCapture(
         site: result.site,
         externalId: result.externalId,
         url: result.url,
-        details: result.details,
+        details,
         counts,
         surveyedAt: new Date(deps.now())
       })

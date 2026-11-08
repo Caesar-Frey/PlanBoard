@@ -2,6 +2,7 @@
  * Shared scraper contracts. Every site-specific selector and URL pattern lives in its own
  * module (property24.ts, privateproperty.ts); this file stays site-neutral.
  */
+import type { ListingFields } from '../../shared/listingFields'
 
 export type Site = 'p24' | 'pp'
 
@@ -36,22 +37,7 @@ export interface ScrapedPhoto {
 }
 
 /** Listing fields, named exactly like the `listings` table columns so they insert 1:1. */
-export interface ListingDetails {
-  title: string | null
-  price: string | null
-  suburb: string | null
-  city: string | null
-  bedrooms: number | null
-  bathrooms: number | null
-  garages: number | null
-  erf_size: string | null
-  floor_size: string | null
-  levies: string | null
-  rates: string | null
-  description: string | null
-  agent: string | null
-  agency: string | null
-}
+export type ListingDetails = ListingFields
 
 export interface ScrapeResult {
   site: Site
