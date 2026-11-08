@@ -266,7 +266,11 @@ export const IPC = {
   captureProgress: 'planboard:capture-progress',
   listRecent: 'planboard:list-recent',
   openListingFolder: 'planboard:open-listing-folder',
-  openListingUrl: 'planboard:open-listing-url'
+  openListingUrl: 'planboard:open-listing-url',
+  getListing: 'planboard:get-listing',
+  trashPhotos: 'planboard:trash-photos',
+  saveListingDetails: 'planboard:save-listing-details',
+  saveListingNote: 'planboard:save-listing-note'
 } as const
 
 /** The API the preload script exposes on `window.planboard`. */
@@ -288,4 +292,10 @@ export interface PlanBoardApi {
   listRecent(): Promise<Result<RecentListing[]>>
   openListingFolder(listingId: number): Promise<Result<null>>
   openListingUrl(listingId: number): Promise<Result<null>>
+  getListing(listingId: number): Promise<Result<ListingView>>
+  /** Moves the photos' files to the macOS Trash and marks them removed. */
+  trashPhotos(request: TrashPhotosRequest): Promise<Result<TrashReport>>
+  saveListingDetails(request: SaveDetailsRequest): Promise<Result<SaveDetailsOutcome>>
+  /** Saves the current person's "Why we saved this house" note. */
+  saveListingNote(request: SaveNoteRequest): Promise<Result<ListingNote>>
 }

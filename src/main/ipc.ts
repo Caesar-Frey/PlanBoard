@@ -10,16 +10,30 @@ import {
   type CaptureProgress,
   type DetectedListing,
   type LibraryInfo,
+  type ListingNote,
+  type ListingView,
   type ManualCaptureRequest,
   type RecentListing,
+  type SaveDetailsOutcome,
+  type TrashReport,
   type Result,
   type Settings
 } from '../shared/ipc'
 import { failureOutcome, runCapture, type CaptureDeps, type CaptureInput } from './capture/run'
 import type { DB } from './db'
 import { countPhotos, findListing, getListing, listRecentListings } from './db/listings'
+import { saveListingNote } from './db/notes'
 import { listPeople, updatePerson } from './db/queries'
 import { openLibrary } from './library'
+import { regenerateDetailsFile, saveListingDetails } from './listing/details'
+import {
+  isId,
+  parseSaveDetailsRequest,
+  parseSaveNoteRequest,
+  parseTrashRequest
+} from './listing/requests'
+import { trashPhotos } from './listing/trash'
+import { loadListingView } from './listing/view'
 import { mediaUrl } from './media'
 import { isKnownListingUrl, listingFolderPath } from './pathGuard'
 import { LISTINGS_DIR_NAME } from './paths'
@@ -142,8 +156,6 @@ function parseManualRequest(raw: unknown): ManualCaptureRequest | null {
   const suburb = typeof r.suburb === 'string' ? r.suburb.trim().slice(0, 80) || null : null
   return { url: r.url, text: r.text, suburb }
 }
-
-const isId = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v > 0
 
 export function registerIpc(getWindow: () => BrowserWindow | null): AppContext {
   const ctx = new AppContext()
@@ -302,6 +314,110 @@ export function registerIpc(getWindow: () => BrowserWindow | null): AppContext {
     try {
       await shell.openExternal(row.url)
       return { ok: true, value: null }
+    } catch (err) {
+      return fail(err)
+    }
+  })
+
+  const GONE = 'This listing is no longer in the library.'
+
+  const view = async (id: number): Promise<ListingView> => {
+    const v = await loadListingView(ctx.db, ctx.library.root, id)
+    if (!v) throw new Error(GONE)
+    return v
+  }
+
+  handle(IPC.getListing, async (id: unknown): Promise<Result<ListingView>> => {
+    if (!isId(id)) return { ok: false, error: 'Invalid id' }
+    try {
+      return { ok: true, value: await view(id) }
+    } catch (err) {
+      return fail(err)
+    }
+  })
+
+  handle(IPC.trashPhotos, async (raw: unknown): Promise<Result<TrashReport>> => {
+    const request = parseTrashRequest(raw)
+    if (!request) return { ok: false, error: 'Invalid request' }
+    if (ctx.capture) {
+      return { ok: false, error: 'Wait for the survey to finish before removing photos.' }
+    }
+    try {
+      if (!getListing(ctx.db, request.listingId)) return { ok: false, error: GONE }
+      const r = await trashPhotos(
+        {
+          db: ctx.db,
+          libraryRoot: ctx.library.root,
+          trashItem: (path) => shell.trashItem(path),
+          now: Date.now
+        },
+        request.listingId,
+        request.photoIds
+      )
+      for (const f of r.failed) log(`trash failed: ${f.fileName}: ${f.reason}`)
+      // Keep "Photos: N in this folder" true (only if the file is still PlanBoard's own).
+      if (r.trashed.length + r.missing.length > 0) {
+        await regenerateDetailsFile(
+          { db: ctx.db, libraryRoot: ctx.library.root, now: Date.now },
+          request.listingId,
+          'if-ours'
+        ).catch((err: unknown) => log(`details file not updated: ${String(err)}`))
+      }
+      return {
+        ok: true,
+        value: {
+          trashed: r.trashed.length,
+          alreadyMissing: r.missing.length,
+          failed: r.failed,
+          view: await view(request.listingId)
+        }
+      }
+    } catch (err) {
+      return fail(err)
+    }
+  })
+
+  handle(IPC.saveListingDetails, async (raw: unknown): Promise<Result<SaveDetailsOutcome>> => {
+    const request = parseSaveDetailsRequest(raw)
+    if (!request) return { ok: false, error: 'Invalid request' }
+    if (ctx.capture) {
+      return { ok: false, error: 'Wait for the survey to finish before saving the details.' }
+    }
+    try {
+      const r = await saveListingDetails(
+        { db: ctx.db, libraryRoot: ctx.library.root, now: Date.now },
+        request.listingId,
+        request.fields,
+        request.fileMode
+      )
+      if (r.status === 'not-found') return { ok: false, error: GONE }
+      if (r.status !== 'saved') return { ok: true, value: r }
+      return { ok: true, value: { ...r, view: await view(request.listingId) } }
+    } catch (err) {
+      return fail(err)
+    }
+  })
+
+  handle(IPC.saveListingNote, (raw: unknown): Result<ListingNote> => {
+    const request = parseSaveNoteRequest(raw)
+    if (!request) return { ok: false, error: 'Invalid request' }
+    // Only the person in "Tagging as" can write; the other person's note is read-only.
+    if (request.personId !== ctx.settings.currentPersonId) {
+      return { ok: false, error: 'Switch “Tagging as” to this person to edit their note.' }
+    }
+    try {
+      if (!getListing(ctx.db, request.listingId)) return { ok: false, error: GONE }
+      const row = saveListingNote(
+        ctx.db,
+        request.listingId,
+        request.personId,
+        request.text,
+        Date.now()
+      )
+      return {
+        ok: true,
+        value: { personId: row.person_id, text: row.why_saved, updatedAt: row.updated_at }
+      }
     } catch (err) {
       return fail(err)
     }

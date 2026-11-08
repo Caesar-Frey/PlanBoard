@@ -22,7 +22,11 @@ const api: PlanBoardApi = {
   },
   listRecent: () => ipcRenderer.invoke(IPC.listRecent),
   openListingFolder: (id) => ipcRenderer.invoke(IPC.openListingFolder, id),
-  openListingUrl: (id) => ipcRenderer.invoke(IPC.openListingUrl, id)
+  openListingUrl: (id) => ipcRenderer.invoke(IPC.openListingUrl, id),
+  getListing: (id) => ipcRenderer.invoke(IPC.getListing, id),
+  trashPhotos: (request) => ipcRenderer.invoke(IPC.trashPhotos, request),
+  saveListingDetails: (request) => ipcRenderer.invoke(IPC.saveListingDetails, request),
+  saveListingNote: (request) => ipcRenderer.invoke(IPC.saveListingNote, request)
 }
 
 contextBridge.exposeInMainWorld('planboard', api)
