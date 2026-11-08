@@ -1,32 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { AppState, Result } from '../../shared/ipc'
+import { CaptureView } from './capture/CaptureView'
+import { useCapture } from './capture/useCapture'
 import { Header, type ViewId } from './components/Header'
 import { Placeholder } from './components/Placeholder'
+import { RecentView } from './components/RecentView'
 import { SettingsView } from './components/SettingsView'
 
-const PLACEHOLDERS: Record<
-  Exclude<ViewId, 'settings'>,
-  { title: string; milestone: number; blurb: string }
-> = {
-  capture: {
-    title: 'Capture',
-    milestone: 3,
-    blurb: 'Paste a Property24 or Private Property link and survey every photo.'
-  },
-  library: {
-    title: 'Library',
-    milestone: 6,
-    blurb: 'Browse by house, room or detail, and see where your favourite features coincide.'
-  },
-  recent: {
-    title: 'Recent surveys',
-    milestone: 3,
-    blurb: 'Every listing you have downloaded, with how much of it is tagged.'
-  }
+const LIBRARY_PLACEHOLDER = {
+  title: 'Library',
+  milestone: 6,
+  blurb: 'Browse by house, room or detail, and see where your favourite features coincide.'
 }
 
 export function App(): React.JSX.Element {
-  const [view, setView] = useState<ViewId>('settings')
+  const [view, setView] = useState<ViewId>('capture')
+  const [recentVersion, setRecentVersion] = useState(0)
+  const bumpRecent = useCallback(() => setRecentVersion((v) => v + 1), [])
+  const capture = useCapture(bumpRecent)
   const [state, setState] = useState<AppState | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [switchError, setSwitchError] = useState<string | null>(null)
@@ -66,8 +57,12 @@ export function App(): React.JSX.Element {
     content = <p className="notice">Opening library…</p>
   } else if (view === 'settings') {
     content = <SettingsView state={state} apply={apply} />
+  } else if (view === 'capture') {
+    content = <CaptureView state={state} apply={apply} capture={capture} onNavigate={setView} />
+  } else if (view === 'recent') {
+    content = <RecentView key={state.library.root} version={recentVersion} onNavigate={setView} />
   } else {
-    content = <Placeholder {...PLACEHOLDERS[view]} />
+    content = <Placeholder {...LIBRARY_PLACEHOLDER} />
   }
 
   return (
