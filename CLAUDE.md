@@ -1,0 +1,31 @@
+# CLAUDE.md — PlanBoard
+
+This is a Mac-only Electron + TypeScript app. It downloads property listing photos from Property24 and Private Property and lets two people tag them for house-design inspiration.
+
+**Read `PROJECT_BRIEF.md` first.** It has the agreed decisions, the scraping research, the data model, the theme tokens and the milestones. Don't reopen decisions it records without asking the user.
+
+## Working rules
+- Build in the milestone order in the brief. Finish and demo each one before starting the next.
+- Keep all site-specific scraping logic in `src/main/scrapers/<site>.ts`. Unit-test the URL parsing and the image-URL filtering with Vitest, using saved HTML and URL fixtures. Don't depend on live sites in tests.
+- Security: `contextIsolation: true`, `nodeIntegration: false`, and a typed preload bridge. The hidden scraping window never gets Node access.
+- Match the Cape Dutch / Art Deco theme in `design/` and section 8 of the brief. Use the colour tokens as CSS variables.
+- Never commit downloaded images, `planboard.db` or the user's library folder.
+- Ask before adding sync between two Macs (an open question in the brief).
+- The user is an "AI-powered builder". Explain setup steps concretely: the exact commands, and what each one does.
+
+## Commands
+Run all of these from the project folder (`cd "/Users/sandbox2/Documents/Vibe coding/PlanBoard"`). Needs Node 22.12+.
+
+- `npm install` — installs packages, then `postinstall` downloads the Electron binary (`install-electron`) and runs `electron-builder install-app-deps`. Its "space in the path" warning is harmless: better-sqlite3 v13 is a Node-API addon and loads its prebuilt binary in both Node and Electron.
+- `npm run dev` — builds main + preload, starts the Vite dev server and opens the app with hot reload. Main-process logs (`[planboard] ...`) print in this terminal.
+- `npm test` — runs the Vitest unit tests once (`npm run test:watch` re-runs on save). DB tests use real better-sqlite3 under system Node.
+- `npm run typecheck` — `tsc --noEmit` for the Node side (main/preload/shared) and the web side (renderer).
+- `npm run lint` — ESLint (TypeScript rules, React hooks rules, no stray `console.log`).
+- `npm run format` — rewrites files with Prettier (`npm run format:check` only reports).
+- `npm run build` — typechecks, then compiles everything into `out/`. `npm start` runs that build.
+- Packaging (`.dmg`) is milestone 7: `npx electron-builder --mac` using `electron-builder.yml`.
+
+## Where things live
+- `src/shared/ipc.ts` — IPC channel names and types used by main, preload and renderer.
+- `src/main/` — app window (`index.ts`), IPC handlers (`ipc.ts`), settings (`settings.ts`, stored in `~/Library/Application Support/planboard/settings.json`), library folder + db (`library.ts`, `db/`).
+- `src/renderer/src/styles/tokens.css` — the only file allowed to contain raw colour values.

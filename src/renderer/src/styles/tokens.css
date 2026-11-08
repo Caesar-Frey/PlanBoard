@@ -1,0 +1,30 @@
+/* Cape Dutch / Art Deco theme tokens (PROJECT_BRIEF.md section 8).
+   This is the ONLY file that may contain raw colour values. */
+:root {
+  --cream: #f6efe2;
+  --cream-deep: #ece2cf;
+  --card: #fbf7ef;
+  --bottle-green: #1f3b33;
+  --green-mid: #2c5045;
+  --brass: #c9a45c;
+  --brass-dark: #b08a3e;
+  --brass-text: #7a5a1e;
+  --pale-brass: #e3cf9f;
+  --ink: #1f2a26;
+
+  /* Derived (from the mockup) */
+  --ink-muted: #5c5446;
+  --card-border: #e0d2b4;
+  --cream-on-green-wash: rgba(246, 239, 226, 0.07);
+  --brass-hairline: rgba(201, 164, 92, 0.5);
+  --fluting-on-cream: rgba(31, 59, 51, 0.1);
+  --fluting-on-green: rgba(201, 164, 92, 0.18);
+  --error: #8b2a1e;
+
+  --font-display: 'Marcellus', 'Iowan Old Style', serif;
+  --font-body: 'Jost', 'Avenir Next', system-ui, sans-serif;
+
+  --touch: 44px;
+  --touch-small: 36px;
+  --pill: 999px;
+}
