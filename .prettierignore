@@ -6,3 +6,4 @@ design
 reference
 package-lock.json
 *.md
+test/fixtures
