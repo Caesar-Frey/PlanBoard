@@ -305,9 +305,11 @@ export function buildPpResult(capture: ScrapeCapture): ScrapeResult {
     externalId: capture.listing.externalId,
     url: capture.listing.url,
     expectedPhotoCount: expected,
+    duplicatePhotos: 0,
     photos,
     details: extractPpDetails(capture.html, capture.listing.url),
-    warnings: countWarnings(photos.length, expected, SITE_NAME.pp)
+    warnings: countWarnings(photos.length, expected, SITE_NAME.pp),
+    notes: []
   }
 }
 

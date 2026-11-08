@@ -62,8 +62,15 @@ export interface ScrapeResult {
   /** Unique gallery photos, in gallery order. */
   photos: ScrapedPhoto[]
   details: ListingDetails
-  /** Plain-English notes for the user, for example fewer photos found than the listing states. */
+  /**
+   * How many of `expectedPhotoCount` are repeats of another photo in the same gallery
+   * (Property24 sometimes lists one photo twice). The unique count is then complete.
+   */
+  duplicatePhotos: number
+  /** Plain-English problems for the user, for example fewer photos found than the listing states. */
   warnings: string[]
+  /** Plain-English information that needs no action, for example a photo listed twice. */
+  notes: string[]
 }
 
 /** What a live driver hands to a site module's pure result builder. */
@@ -97,7 +104,12 @@ export interface SiteScraper {
 }
 
 export type ScraperErrorCode =
-  'unsupported-site' | 'not-a-listing' | 'load-failed' | 'no-photos' | 'invalid-manual-input'
+  | 'unsupported-site'
+  | 'not-a-listing'
+  | 'load-failed'
+  | 'no-photos'
+  | 'invalid-manual-input'
+  | 'cancelled'
 
 /**
  * An error whose `message` is written for the user, not the developer.

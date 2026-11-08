@@ -24,6 +24,7 @@ export async function runScrapeCli(url: string): Promise<number> {
       log: (message) => void write(process.stderr, `[scrape] ${message}\n`)
     })
     await write(process.stdout, `${JSON.stringify(result, null, 2)}\n`)
+    for (const note of result.notes) await write(process.stderr, `note: ${note}\n`)
     for (const warning of result.warnings) await write(process.stderr, `warning: ${warning}\n`)
     await write(
       process.stdout,

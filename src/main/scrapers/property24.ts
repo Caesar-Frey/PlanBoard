@@ -242,7 +242,7 @@ function collect({ html, networkUrls }: ScrapeCapture): Collected {
   return { photos, expected, slots, complete }
 }
 
-function duplicateWarning(slots: string[], unique: number): string | null {
+function duplicateNote(slots: string[], unique: number): string | null {
   const positions = new Map<string, number[]>()
   slots.forEach((id, i) => positions.set(id, [...(positions.get(id) ?? []), i + 1]))
   const dups = [...positions.values()].filter((p) => p.length > 1)
@@ -265,17 +265,19 @@ export function buildP24Result(capture: ScrapeCapture): ScrapeResult {
   if (photos.length === 0) throw siteChangedError('p24')
 
   const dup =
-    expected !== null && slots.length >= expected ? duplicateWarning(slots, photos.length) : null
-  const warnings = dup ? [dup] : countWarnings(photos.length, expected, SITE_NAME.p24)
+    expected !== null && slots.length >= expected ? duplicateNote(slots, photos.length) : null
+  const duplicatePhotos = dup && expected !== null ? Math.max(0, expected - photos.length) : 0
 
   return {
     site: 'p24',
     externalId: capture.listing.externalId,
     url: capture.listing.url,
     expectedPhotoCount: expected,
+    duplicatePhotos,
     photos,
     details: extractP24Details(capture.html, capture.listing.url),
-    warnings
+    warnings: dup ? [] : countWarnings(photos.length, expected, SITE_NAME.p24),
+    notes: dup ? [dup] : []
   }
 }
 

@@ -228,9 +228,11 @@ describe('buildP24Result', () => {
 
   it('explains a duplicate photo in the listing instead of reporting a missing one', () => {
     const result = buildP24Result({ listing: LISTING, html, networkUrls })
-    expect(result.warnings).toHaveLength(1)
-    expect(result.warnings[0]).toMatch(/appears twice/)
-    expect(result.warnings[0]).toMatch(/63/)
+    expect(result.duplicatePhotos).toBe(1)
+    expect(result.warnings).toEqual([])
+    expect(result.notes).toHaveLength(1)
+    expect(result.notes[0]).toMatch(/appears twice/)
+    expect(result.notes[0]).toMatch(/63/)
   })
 
   it('ignores network-only images when the page gallery is already complete', () => {

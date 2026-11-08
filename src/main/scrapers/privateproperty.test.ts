@@ -211,6 +211,8 @@ describe('buildPpResult', () => {
     })
     expect(result.photos[38]?.fileName).toMatch(/^image_39_/)
     expect(result.warnings).toEqual([])
+    expect(result.duplicatePhotos).toBe(0)
+    expect(result.notes).toEqual([])
   })
 
   it('warns, without failing, when only the grid photos were captured', () => {
