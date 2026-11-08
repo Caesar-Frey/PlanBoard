@@ -4,7 +4,7 @@ import { isComplete } from '../../../shared/progress'
 
 interface OutcomeProps {
   outcome: CaptureOutcome
-  onShowRecent(): void
+  onShowListing(listingId: number): void
   onReset(): void
   onRetry(): void
 }
@@ -19,7 +19,7 @@ function seconds(ms: number): string {
 /** Handover summary, cancelled summary or error (without the manual form, see CaptureView). */
 export function Outcome({
   outcome,
-  onShowRecent,
+  onShowListing,
   onReset,
   onRetry
 }: OutcomeProps): React.JSX.Element {
@@ -135,9 +135,9 @@ export function Outcome({
             Open folder
           </button>
         )}
-        {listing && outcome.status === 'complete' && (
-          <button type="button" className="pill" onClick={onShowRecent}>
-            See in Recent surveys
+        {listing && (
+          <button type="button" className="pill" onClick={() => onShowListing(listing.id)}>
+            See listing
           </button>
         )}
         {outcome.status !== 'complete' && outcome.error?.code !== 'unsupported-site' && (

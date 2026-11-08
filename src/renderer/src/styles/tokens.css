@@ -20,6 +20,8 @@
   --fluting-on-cream: rgba(31, 59, 51, 0.1);
   --fluting-on-green: rgba(201, 164, 92, 0.18);
   --error: #8b2a1e;
+  --backdrop: rgba(31, 42, 38, 0.6);
+  --shadow: rgba(31, 42, 38, 0.25);
 
   --font-display: 'Marcellus', 'Iowan Old Style', serif;
   --font-body: 'Jost', 'Avenir Next', system-ui, sans-serif;

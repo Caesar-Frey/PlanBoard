@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import type { AppState, DetectedListing, Result } from '../../../shared/ipc'
-import type { ViewId } from '../components/Header'
 import { PageTitle, SectionLabel } from '../components/Ornament'
 import { ManualFallback } from './ManualFallback'
 import { Outcome } from './Outcome'
@@ -11,7 +10,7 @@ interface CaptureViewProps {
   state: AppState
   apply(result: Result<AppState> | null): string | null
   capture: CaptureControls
-  onNavigate(view: ViewId): void
+  onOpenListing(listingId: number): void
 }
 
 const SITE_SHORT: Record<DetectedListing['site'], string> = { p24: 'P24', pp: 'PP' }
@@ -20,7 +19,7 @@ export function CaptureView({
   state,
   apply,
   capture,
-  onNavigate
+  onOpenListing
 }: CaptureViewProps): React.JSX.Element {
   const [url, setUrl] = useState(capture.url ?? '')
   const [check, setCheck] = useState<{ url: string; result: Result<DetectedListing> } | null>(null)
@@ -168,7 +167,7 @@ export function CaptureView({
           {!busy && outcome && (
             <Outcome
               outcome={outcome}
-              onShowRecent={() => onNavigate('recent')}
+              onShowListing={onOpenListing}
               onReset={() => {
                 capture.reset()
                 setUrl('')

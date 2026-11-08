@@ -7,6 +7,8 @@ interface RecentViewProps {
   /** Bumped after every capture so the list reloads. */
   version: number
   onNavigate(view: ViewId): void
+  /** Opens the listing view. */
+  onOpen(listingId: number): void
 }
 
 const SITE_SHORT: Record<RecentListing['site'], string> = { p24: 'P24', pp: 'PP' }
@@ -14,10 +16,9 @@ const SITE_SHORT: Record<RecentListing['site'], string> = { p24: 'P24', pp: 'PP'
 const formatDate = (ms: number): string =>
   new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 
-export function RecentView({ version, onNavigate }: RecentViewProps): React.JSX.Element {
+export function RecentView({ version, onNavigate, onOpen }: RecentViewProps): React.JSX.Element {
   const [rows, setRows] = useState<RecentListing[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [openId, setOpenId] = useState<number | null>(null)
 
   useEffect(() => {
     let live = true
@@ -61,12 +62,7 @@ export function RecentView({ version, onNavigate }: RecentViewProps): React.JSX.
     body = (
       <ul className="surveys">
         {rows.map((row) => (
-          <SurveyRow
-            key={row.id}
-            row={row}
-            open={openId === row.id}
-            onToggle={() => setOpenId((id) => (id === row.id ? null : row.id))}
-          />
+          <SurveyRow key={row.id} row={row} onOpen={() => onOpen(row.id)} />
         ))}
       </ul>
     )
@@ -82,22 +78,12 @@ export function RecentView({ version, onNavigate }: RecentViewProps): React.JSX.
 
 interface SurveyRowProps {
   row: RecentListing
-  open: boolean
-  onToggle(): void
+  onOpen(): void
 }
 
-function SurveyRow({ row, open, onToggle }: SurveyRowProps): React.JSX.Element {
-  const [actionError, setActionError] = useState<string | null>(null)
+function SurveyRow({ row, onOpen }: SurveyRowProps): React.JSX.Element {
   const [thumbFailed, setThumbFailed] = useState(false)
-  const detailsId = `survey-${row.id}-actions`
   const name = row.suburb ?? 'Unknown suburb'
-
-  const act = async (
-    fn: (id: number) => Promise<{ ok: boolean; error?: string }>
-  ): Promise<void> => {
-    const r = await fn(row.id)
-    setActionError(r.ok ? null : (r.error ?? 'Something went wrong'))
-  }
 
   const photos =
     row.photosExpected !== null
@@ -106,14 +92,8 @@ function SurveyRow({ row, open, onToggle }: SurveyRowProps): React.JSX.Element {
   const short = row.photosExpected !== null && row.photosOnDisk < row.photosExpected
 
   return (
-    <li className={`survey${open ? ' survey--open' : ''}`}>
-      <button
-        type="button"
-        className="survey__row"
-        aria-expanded={open}
-        aria-controls={detailsId}
-        onClick={onToggle}
-      >
+    <li className="survey">
+      <button type="button" className="survey__row" onClick={onOpen}>
         <span className="survey__thumb" aria-hidden="true">
           {row.thumbnailUrl && !thumbFailed ? (
             <img
@@ -154,30 +134,6 @@ function SurveyRow({ row, open, onToggle }: SurveyRowProps): React.JSX.Element {
           <span className="survey__stat-value">{formatDate(row.createdAt)}</span>
         </span>
       </button>
-      {open && (
-        <div className="survey__actions" id={detailsId}>
-          <button
-            type="button"
-            className="pill pill--primary"
-            onClick={() => void act(window.planboard.openListingFolder)}
-          >
-            Open folder
-          </button>
-          <button
-            type="button"
-            className="pill"
-            onClick={() => void act(window.planboard.openListingUrl)}
-          >
-            Open original listing
-          </button>
-          <span className="panel__help">The full listing view arrives in milestone 4.</span>
-          {actionError && (
-            <p className="field-error" role="alert">
-              {actionError}
-            </p>
-          )}
-        </div>
-      )}
     </li>
   )
 }
