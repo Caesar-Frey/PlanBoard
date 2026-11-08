@@ -1,0 +1,22 @@
+# Packaging config. Building the .dmg is milestone 7 (`npx electron-builder --mac`).
+appId: com.planboard.app
+productName: PlanBoard
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**
+  - package.json
+  - '!**/*.{ts,tsx,map}'
+asarUnpack:
+  - node_modules/better-sqlite3/**
+mac:
+  target:
+    - target: dmg
+  category: public.app-category.lifestyle
+  # Unsigned build for personal use: first launch needs right-click > Open.
+  identity: null
+dmg:
+  artifactName: ${productName}-${version}-${arch}.dmg
+# better-sqlite3 v13 is a Node-API addon with prebuilt binaries, so no Electron rebuild is needed.
+npmRebuild: false

@@ -1,0 +1,26 @@
+node_modules/
+out/
+dist/
+release/
+coverage/
+.DS_Store
+*.log
+.env*
+*.tsbuildinfo
+
+# User data: never commit
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+planboard.db
+library/
+listings/
+PlanBoard-library/
+
+# Downloaded / generated images (design/ and src/ assets are tracked explicitly if ever needed)
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.heic
