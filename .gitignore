@@ -24,3 +24,6 @@ PlanBoard-library/
 *.png
 *.webp
 *.heic
+# README screenshots (a fictional demo library with Unsplash photos; see docs/screenshots/CREDITS.md)
+!docs/screenshots/*.jpg
+.gstack/
