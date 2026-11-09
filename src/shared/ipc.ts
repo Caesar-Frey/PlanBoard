@@ -434,6 +434,7 @@ export const IPC = {
   listTags: 'planboard:list-tags',
   renameTag: 'planboard:rename-tag',
   mergeTags: 'planboard:merge-tags',
+  getInspiration: 'planboard:get-inspiration',
   /** renderer → main (send): the listing view has, or no longer has, unsaved detail edits. */
   setUnsavedDetails: 'planboard:set-unsaved-details',
   /** main → renderer event carrying a `CloseKind`: ask before closing. */
@@ -479,6 +480,8 @@ export interface PlanBoardApi {
   renameTag(request: RenameTagRequest): Promise<Result<RenameTagOutcome>>
   /** Moves every use of one tag onto another and deletes the first. */
   mergeTags(request: MergeTagsRequest): Promise<Result<MergeTagsOutcome>>
+  /** Every house and photo (removed ones left out) with rooms, tags, marks and notes. */
+  getInspiration(): Promise<Result<InspirationSnapshot>>
   /** Tells main whether quitting now would lose detail edits. */
   setUnsavedDetails(dirty: boolean): void
   /** Main is holding a close or quit for the unsaved details. Returns the unsubscribe function. */

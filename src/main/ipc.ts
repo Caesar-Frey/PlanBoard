@@ -9,6 +9,7 @@ import {
   type CaptureOutcome,
   type CaptureProgress,
   type DetectedListing,
+  type InspirationSnapshot,
   type LibraryInfo,
   type ListingNote,
   type ListingView,
@@ -21,6 +22,7 @@ import {
 } from '../shared/ipc'
 import { failureOutcome, runCapture, type CaptureDeps, type CaptureInput } from './capture/run'
 import type { DB } from './db'
+import { loadInspiration } from './db/inspiration'
 import { countPhotos, findListing, getListing, listRecentListings } from './db/listings'
 import { saveListingNote } from './db/notes'
 import { listPeople, updatePerson } from './db/queries'
@@ -446,6 +448,15 @@ export function registerIpc(getWindow: () => BrowserWindow | null): AppContext {
   handle(IPC.listTags, () => listTags(tagging()))
   handle(IPC.renameTag, (raw: unknown) => renameTagRequest(tagging(), raw))
   handle(IPC.mergeTags, (raw: unknown) => mergeTagsRequest(tagging(), raw))
+
+  // Inspiration library (milestone 6): one snapshot; the renderer filters it.
+  handle(IPC.getInspiration, (): Result<InspirationSnapshot> => {
+    try {
+      return { ok: true, value: loadInspiration(ctx.db) }
+    } catch (err) {
+      return fail(err)
+    }
+  })
 
   handle(IPC.setCurrentPerson, (id: unknown): Result<AppState> => {
     if (typeof id !== 'number' || !Number.isInteger(id)) return { ok: false, error: 'Invalid id' }

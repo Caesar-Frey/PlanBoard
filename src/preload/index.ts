@@ -34,6 +34,7 @@ const api: PlanBoardApi = {
   listTags: () => ipcRenderer.invoke(IPC.listTags),
   renameTag: (request) => ipcRenderer.invoke(IPC.renameTag, request),
   mergeTags: (request) => ipcRenderer.invoke(IPC.mergeTags, request),
+  getInspiration: () => ipcRenderer.invoke(IPC.getInspiration),
   setUnsavedDetails: (dirty) => ipcRenderer.send(IPC.setUnsavedDetails, dirty === true),
   onCloseRequested: (listener) => {
     const handler = (_event: IpcRendererEvent, kind: CloseKind): void => listener(kind)

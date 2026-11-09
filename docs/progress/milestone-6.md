@@ -5,7 +5,7 @@ Resumable checklist. On resume: read this file and `git log`, continue at the fi
 ## Chunks
 
 - [x] (a) Pure filter / coincidence / search logic (`shared/inspiration.ts`) + db snapshot query (`main/db/inspiration.ts`), TDD — 46 new tests (filters incl. Both agree, coincidence in houses with tie-breaks, search, removed photos left out). 391 green.
-- [ ] (b) IPC channel + typed preload (`getInspiration`)
+- [x] (b) IPC channel + typed preload (`getInspiration`) — `IPC.getInspiration`, handler in `main/ipc.ts` returns `Result<InspirationSnapshot>`; no request body to check.
 - [ ] (c) Library screen layout + rail (scope, rooms, marked as, person) + grid of cards
 - [ ] (d) "Where they coincide" banner + search
 - [ ] (e) Detail panel (large photo, tagging panel reuse, "Same feature in", listing links)
