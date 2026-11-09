@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   EMPTY_FIELDS_INPUT,
+  LISTING_FIELD_GROUPS,
   LISTING_FIELD_KEYS,
   fieldsToInput,
   sameFields,
@@ -18,8 +19,20 @@ describe('validateListingFields', () => {
     expect([...LISTING_FIELD_KEYS].sort()).toEqual(
       [
         'agency',
+        'agency_email',
+        'agency_phone',
         'agent',
+        'agent_email',
+        'agent_phone',
         'bathrooms',
+        'bond_deposit',
+        'bond_interest_rate',
+        'bond_min_income',
+        'bond_monthly_repayment',
+        'bond_once_off_costs',
+        'bond_term_years',
+        'bond_total_interest',
+        'bond_total_repayment',
         'bedrooms',
         'city',
         'description',
@@ -33,6 +46,43 @@ describe('validateListingFields', () => {
         'title'
       ].sort()
     )
+  })
+
+  it('puts every field in exactly one form section, contacts and bond figures last', () => {
+    const all = LISTING_FIELD_GROUPS.flatMap((g) => g.keys)
+    expect([...all].sort()).toEqual([...LISTING_FIELD_KEYS].sort())
+    expect(new Set(all).size).toBe(all.length)
+    expect(LISTING_FIELD_GROUPS.map((g) => g.id)).toEqual(['property', 'contact', 'bond'])
+    expect(LISTING_FIELD_GROUPS[1]?.keys).toEqual([
+      'agent',
+      'agent_phone',
+      'agent_email',
+      'agency',
+      'agency_phone',
+      'agency_email'
+    ])
+  })
+
+  it('checks the loan term and email addresses', () => {
+    const good = validateListingFields(
+      input({
+        bond_term_years: '20',
+        bond_interest_rate: '10.75%',
+        agent_email: 'agent@example.com',
+        agency_email: 'a@example.com, b@example.co.za',
+        agent_phone: '082 000 0000'
+      })
+    )
+    expect(good.ok && good.value).toMatchObject({
+      bond_term_years: 20,
+      bond_interest_rate: '10.75%',
+      agency_email: 'a@example.com, b@example.co.za',
+      agent_phone: '082 000 0000'
+    })
+    const bad = validateListingFields(input({ bond_term_years: '20.5', agent_email: 'agent at x' }))
+    expect(bad.ok).toBe(false)
+    if (bad.ok) return
+    expect(Object.keys(bad.errors).sort()).toEqual(['agent_email', 'bond_term_years'])
   })
 
   it('trims text, turns empty into null and parses numbers', () => {

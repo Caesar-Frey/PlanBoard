@@ -15,6 +15,8 @@ export interface ListingRecord extends ListingDetails {
   photo_duplicates?: number | null
   /** When the listing was last surveyed. `created_at` is the first time. */
   surveyed_at?: number | null
+  /** When the bond figures were read from the listing (null: none read). */
+  bond_as_of?: number | null
   created_at: number
 }
 
@@ -35,6 +37,17 @@ export interface RecentRow extends ListingRow {
   first_photo: string | null
 }
 
+const BOND_COLUMNS = [
+  'bond_interest_rate',
+  'bond_term_years',
+  'bond_deposit',
+  'bond_monthly_repayment',
+  'bond_once_off_costs',
+  'bond_min_income',
+  'bond_total_interest',
+  'bond_total_repayment'
+] as const satisfies readonly (keyof ListingDetails)[]
+
 export const DETAIL_COLUMNS = [
   'title',
   'price',
@@ -49,7 +62,12 @@ export const DETAIL_COLUMNS = [
   'rates',
   'description',
   'agent',
-  'agency'
+  'agency',
+  'agent_phone',
+  'agent_email',
+  'agency_phone',
+  'agency_email',
+  ...BOND_COLUMNS
 ] as const satisfies readonly (keyof ListingDetails)[]
 
 const FACT_COLUMNS = ['photo_count_listed', 'photo_duplicates', 'surveyed_at'] as const
@@ -61,6 +79,7 @@ const INSERT_COLUMNS = [
   'folder_path',
   'photo_count_expected',
   ...FACT_COLUMNS,
+  'bond_as_of',
   'created_at'
 ] as const
 
@@ -70,7 +89,8 @@ const isEmpty = (col: string): string => `(listings.${col} IS NULL OR TRIM(listi
  * Re-survey merge rule (agreed with the user): a detail field is only filled in when it is
  * empty in the library. A value that is there (scraped earlier or typed in the listing view) is
  * never overwritten. The survey facts are refreshed, keeping the old value when this survey
- * didn't find one.
+ * didn't find one. `bond_as_of` dates the bond figures, so it only changes when the library
+ * had none of them (and this survey's figures fill them in).
  */
 const UPSERT_SQL =
   `INSERT INTO listings (${INSERT_COLUMNS.join(', ')}) ` +
@@ -81,6 +101,8 @@ const UPSERT_SQL =
     'folder_path = excluded.folder_path',
     'photo_count_expected = excluded.photo_count_expected',
     ...FACT_COLUMNS.map((c) => `${c} = COALESCE(excluded.${c}, listings.${c})`),
+    `bond_as_of = CASE WHEN ${BOND_COLUMNS.map(isEmpty).join(' AND ')} ` +
+      `THEN excluded.bond_as_of ELSE listings.bond_as_of END`,
     ...DETAIL_COLUMNS.map(
       (c) => `${c} = CASE WHEN ${isEmpty(c)} THEN excluded.${c} ELSE listings.${c} END`
     )

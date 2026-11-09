@@ -3,6 +3,8 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   buildPpResult,
+  extractPpBond,
+  extractPpContacts,
   extractPpDetails,
   extractPpGalleryUrls,
   findPpImageListingId,
@@ -21,6 +23,11 @@ const galleryHtml = readFileSync(resolve(FIXTURES, 'listing-gallery-open.html'),
 const networkUrls = JSON.parse(
   readFileSync(resolve(FIXTURES, 'network-urls.json'), 'utf8')
 ) as string[]
+
+const contactBondHtml = readFileSync(resolve(FIXTURES, 'listing-contact-bond.html'), 'utf8')
+const contactBondData = JSON.parse(
+  readFileSync(resolve(FIXTURES, 'listing-contact-bond.page-data.json'), 'utf8')
+) as Record<string, unknown>
 
 const LISTING = {
   site: 'pp' as const,
@@ -188,6 +195,16 @@ describe('extractPpDetails', () => {
     expect(d).toContain('perimeter beams')
   })
 
+  it('undoes the doubled apostrophes Private Property serves in descriptions', () => {
+    // The saved page really has "you''ll" and "Entertainer''s" in its HTML.
+    expect(galleryHtml).toContain("Why you''ll love it")
+    const d = extractPpDetails(galleryHtml).description ?? ''
+    expect(d).toContain("Why you'll love it:")
+    expect(d).toContain("- Entertainer's Dream")
+    expect(d).toContain("Chef's Kitchen")
+    expect(d).not.toContain("''")
+  })
+
   it('returns nulls for a page without details', () => {
     expect(extractPpDetails('<html></html>')).toMatchObject({
       title: null,
@@ -212,7 +229,9 @@ describe('buildPpResult', () => {
     expect(result.photos[38]?.fileName).toMatch(/^image_39_/)
     expect(result.warnings).toEqual([])
     expect(result.duplicatePhotos).toBe(0)
-    expect(result.notes).toEqual([])
+    // The only note: the agent's number sits behind "Show number".
+    expect(result.notes).toHaveLength(1)
+    expect(result.notes[0]).toMatch(/Show number/)
   })
 
   it('warns, without failing, when only the grid photos were captured', () => {
@@ -229,5 +248,80 @@ describe('buildPpResult', () => {
         networkUrls: []
       })
     ).toThrow(ScraperError)
+  })
+})
+
+describe('extractPpBond', () => {
+  it('reads the calculator as the page rendered it', () => {
+    expect(extractPpBond(contactBondHtml, contactBondData)).toEqual({
+      bond_interest_rate: '10.5%',
+      bond_term_years: 20,
+      bond_deposit: 'R 0',
+      bond_monthly_repayment: 'R 27 855',
+      bond_total_interest: 'R 3 895 152',
+      bond_total_repayment: 'R 6 685 152'
+    })
+  })
+
+  it('falls back to the saved HTML, which has no chosen loan term', () => {
+    expect(extractPpBond(contactBondHtml)).toEqual({
+      bond_interest_rate: '10.5%',
+      bond_deposit: 'R 0',
+      bond_monthly_repayment: 'R 27 855',
+      bond_total_interest: 'R 3 895 152',
+      bond_total_repayment: 'R 6 685 152'
+    })
+  })
+
+  it('returns no figures for a page without a calculator', () => {
+    expect(extractPpBond('<html></html>', { bond: null })).toEqual({})
+  })
+})
+
+describe('extractPpContacts', () => {
+  it('finds no number on the page: it sits behind "Show number"', () => {
+    expect(extractPpContacts(contactBondHtml)).toEqual({
+      agent_phone: null,
+      agent_email: null,
+      agency_phone: null,
+      agency_email: null,
+      numberHidden: true
+    })
+  })
+
+  it('reads numbers and addresses the page does show as links', () => {
+    // Synthetic markup with placeholder values (no live listing showed any).
+    const page = `<div id="listing-contacts-container"><div>
+        <div><h4><a href="/estate-agency/x/1">Agency</a></h4>
+          <a href="tel:0310000000">Call</a><a href="mailto:office@example.com">Mail</a></div>
+        <ul><li><p>Agent Name</p><a href="tel:082 000 0000">082 000 0000</a>
+          <a href="mailto:agent@example.com">Mail</a></li>
+          <li><p>Second Agent</p><a href="tel:083 000 0000">083 000 0000</a></li></ul>
+      </div></div>`
+    expect(extractPpContacts(page)).toEqual({
+      agent_phone: '082 000 0000, 083 000 0000',
+      agent_email: 'agent@example.com',
+      agency_phone: '0310000000',
+      agency_email: 'office@example.com',
+      numberHidden: false
+    })
+  })
+})
+
+describe('buildPpResult contact and bond details', () => {
+  it('adds the bond figures and notes that the agent number was not fetched', () => {
+    const result = buildPpResult({
+      listing: LISTING,
+      html: galleryHtml + contactBondHtml,
+      networkUrls,
+      pageData: contactBondData
+    })
+    expect(result.details).toMatchObject({
+      bond_interest_rate: '10.5%',
+      bond_term_years: 20,
+      bond_monthly_repayment: 'R 27 855',
+      agent_phone: null
+    })
+    expect(result.notes.join(' ')).toMatch(/CAPTCHA/)
   })
 })

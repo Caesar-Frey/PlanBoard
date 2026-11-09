@@ -21,10 +21,13 @@ export interface DetailsInput {
   surveyedAt: Date
   /** When this copy of the file is written. Defaults to `surveyedAt` (a capture). */
   writtenAt?: Date
+  /** When the bond figures were read. Defaults to `surveyedAt`. */
+  bondAsOf?: Date | null
 }
 
 const NOT_LISTED = 'Not listed'
 const LABEL_WIDTH = 16
+const BOND_LABEL_WIDTH = 27
 const MARKER = /\[planboard:([0-9a-f]{12})\]/
 
 const checksum = (text: string): string =>
@@ -49,6 +52,51 @@ function photoLine(c: DetailsInput['counts']): string {
   return line
 }
 
+const lines = (rows: [string, string][], width = LABEL_WIDTH): string =>
+  rows.map(([label, v]) => `${`${label}:`.padEnd(width)}${v}`).join('\n')
+
+const heading = (title: string): string => `${title}\n${'-'.repeat(title.length)}\n`
+
+function contactSection(d: ListingDetails): string {
+  return (
+    heading('AGENT CONTACT') +
+    lines([
+      ['Agent', value(d.agent)],
+      ['Agent phone', value(d.agent_phone)],
+      ['Agent email', value(d.agent_email)],
+      ['Agency', value(d.agency)],
+      ['Agency phone', value(d.agency_phone)],
+      ['Agency email', value(d.agency_email)]
+    ]) +
+    '\n'
+  )
+}
+
+/** Only the figures the listing showed (each site shows a different set). */
+function bondSection(d: ListingDetails, asOf: Date): string {
+  const term = d.bond_term_years === null ? null : `${d.bond_term_years} years`
+  const rows = (
+    [
+      ['Interest rate', d.bond_interest_rate],
+      ['Loan term', term],
+      ['Deposit', d.bond_deposit],
+      ['Monthly repayment', d.bond_monthly_repayment],
+      ['Total once-off costs', d.bond_once_off_costs],
+      ['Min gross monthly income', d.bond_min_income],
+      ['Total interest', d.bond_total_interest],
+      ['Total repayment', d.bond_total_repayment]
+    ] as [string, string | null][]
+  ).filter((r): r is [string, string] => r[1] !== null && r[1].trim() !== '')
+  if (rows.length === 0) {
+    return heading('BOND REFERENCE') + 'No bond figures were read from the listing.\n'
+  }
+  return (
+    heading(`BOND REFERENCE (site defaults, ${formatDate(asOf)})`) +
+    lines(rows, BOND_LABEL_WIDTH) +
+    '\n(The listing’s own bond calculator with its default rate and term: a reference, not a quote.)\n'
+  )
+}
+
 export function formatPropertyDetails(input: DetailsInput): string {
   const d = input.details
   const rows: [string, string][] = [
@@ -65,8 +113,6 @@ export function formatPropertyDetails(input: DetailsInput): string {
     ['Floor size', value(d.floor_size)],
     ['Levies', value(d.levies)],
     ['Rates & taxes', value(d.rates)],
-    ['Agent', value(d.agent)],
-    ['Agency', value(d.agency)],
     ['Photos', photoLine(input.counts)],
     ['Date surveyed', formatDate(input.surveyedAt)]
   ]
@@ -74,9 +120,13 @@ export function formatPropertyDetails(input: DetailsInput): string {
   const body =
     'PROPERTY DETAILS\n' +
     '================\n\n' +
-    rows.map(([label, v]) => `${`${label}:`.padEnd(LABEL_WIDTH)}${v}`).join('\n') +
-    '\n\nDESCRIPTION\n' +
-    '-----------\n' +
+    lines(rows) +
+    '\n\n' +
+    contactSection(d) +
+    '\n' +
+    bondSection(d, input.bondAsOf ?? input.surveyedAt) +
+    '\n' +
+    heading('DESCRIPTION') +
     `${description}\n\n`
   const footer =
     `— Written by PlanBoard on ${formatDate(input.writtenAt ?? input.surveyedAt)}. Edit freely: once this file ` +

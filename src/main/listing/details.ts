@@ -116,6 +116,7 @@ export async function regenerateDetailsFile(
     details: detailsOf(row),
     counts: { found: onDisk, listed, duplicates, expected: row.photo_count_expected, onDisk },
     surveyedAt: new Date(surveyedAt),
+    bondAsOf: row.bond_as_of ? new Date(row.bond_as_of) : null,
     writtenAt: new Date(deps.now())
   })
   await writeFileAtomic(path, Buffer.from(text, 'utf8'))

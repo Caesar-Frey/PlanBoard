@@ -10,13 +10,19 @@
  */
 import {
   cleanText,
+  collapseEscapedQuotes,
   countWarnings,
   firstNumber,
   isRecord,
+  joinValues,
   jsonLdBlocks,
+  mailAddress,
   paragraphText,
   parseHtml,
+  percentText,
   pick,
+  randText,
+  telNumber,
   textOf,
   tryUrl,
   uniqueBy,
@@ -247,9 +253,11 @@ export function extractPpDetails(html: string, listingUrl?: string): ListingDeta
   const agentAlt = contacts?.querySelector('img[alt^="Photo of "]')?.getAttribute('alt') ?? null
   const agencyLink = contacts?.querySelector('a[href^="/estate-agency/"]')
 
+  // Private Property's own HTML has SQL-style doubled apostrophes ("you''ll"); undo them.
+  const q = collapseEscapedQuotes
   return {
     ...EMPTY_DETAILS,
-    title: textOf(root, 'h1.listing-details__title') ?? textOf(root, 'h1'),
+    title: q(textOf(root, 'h1.listing-details__title') ?? textOf(root, 'h1')),
     price: textOf(root, '.listing-price-display__price'),
     suburb,
     city,
@@ -260,11 +268,115 @@ export function extractPpDetails(html: string, listingUrl?: string): ListingDeta
     floor_size: firstOf([details, main], ['floor size', 'floor area']),
     levies: firstOf([details], ['levies', 'levy']),
     rates: firstOf([details], ['rates and taxes', 'rates & taxes', 'rates']),
-    description: paragraphText(root.querySelector('.listing-description__text')),
-    agent: agentAlt ? cleanText(agentAlt.replace(/^Photo of /, '')) : null,
-    agency: cleanText(agencyLink?.getAttribute('title') ?? agencyLink?.text)
+    description: q(paragraphText(root.querySelector('.listing-description__text'))),
+    agent: q(agentAlt ? cleanText(agentAlt.replace(/^Photo of /, '')) : null),
+    agency: q(cleanText(agencyLink?.getAttribute('title') ?? agencyLink?.text))
   }
 }
+
+/** Bond figures, named like the `listings` columns. Only the ones the page showed. */
+export type PpBondFigures = Partial<
+  Pick<
+    ListingDetails,
+    | 'bond_interest_rate'
+    | 'bond_term_years'
+    | 'bond_deposit'
+    | 'bond_monthly_repayment'
+    | 'bond_total_interest'
+    | 'bond_total_repayment'
+  >
+>
+
+const str = (v: unknown): string | null => (typeof v === 'string' ? v : null)
+
+/** `<label>Total interest:</label><output>R 3 895 152</output>` → label (lower case, no colon). */
+function outputsByLabel(root: HTMLElement | null): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const o of root?.querySelectorAll('output') ?? []) {
+    const prev = o.previousElementSibling
+    const label = prev?.tagName === 'LABEL' ? cleanText(prev.text) : cleanText(o.id)
+    const value = cleanText(o.text)
+    if (label && value) out.set(label.toLowerCase().replace(/:$/, ''), value)
+  }
+  return out
+}
+
+/**
+ * The bond calculator: Private Property's default rate and term, deposit, and the results it
+ * computed in the browser. Prefers what the page script read (`pageData.bond`, the rendered
+ * values); falls back to the saved HTML (input values and output text).
+ */
+export function extractPpBond(html: string, pageData: Record<string, unknown> = {}): PpBondFigures {
+  const rendered = isRecord(pageData['bond']) ? pageData['bond'] : {}
+  const renderedOutputs = new Map<string, string>()
+  if (isRecord(rendered['outputs'])) {
+    for (const [k, v] of Object.entries(rendered['outputs'])) {
+      if (typeof v === 'string') renderedOutputs.set(k.toLowerCase().replace(/:$/, ''), v)
+    }
+  }
+  const calc = parseHtml(html).querySelector('#bond-calculator-container')
+  const htmlOutputs = outputsByLabel(calc)
+  const output = (label: string): string | null =>
+    renderedOutputs.get(label) ?? htmlOutputs.get(label) ?? null
+  const input = (name: string): string | null =>
+    calc?.querySelector(`[name="${name}"]`)?.getAttribute('value') ?? null
+  const selected = calc
+    ?.querySelector('select[name="term"] option[selected]')
+    ?.getAttribute('value')
+
+  const term = firstNumber(str(rendered['termYears']) ?? selected ?? null)
+  const figures: PpBondFigures = {
+    bond_interest_rate: percentText(str(rendered['interestRate']) ?? input('interestRate')),
+    bond_term_years: term !== null && Number.isInteger(term) ? term : null,
+    bond_deposit: randText(str(rendered['deposit']) ?? input('deposit')),
+    bond_monthly_repayment: randText(output('monthly repayments')),
+    bond_total_interest: randText(output('total interest')),
+    bond_total_repayment: randText(output('total repayment'))
+  }
+  return Object.fromEntries(Object.entries(figures).filter(([, v]) => v !== null)) as PpBondFigures
+}
+
+export interface PpContactFigures {
+  agent_phone: string | null
+  agent_email: string | null
+  agency_phone: string | null
+  agency_email: string | null
+  /** A "Show number" button stands in for the number. */
+  numberHidden: boolean
+}
+
+/** Numbers and addresses the contacts box shows as `tel:` / `mailto:` links. */
+export function extractPpContacts(html: string): PpContactFigures {
+  const box = parseHtml(html).querySelector('#listing-contacts-container')
+  const rows = box?.querySelectorAll('li') ?? []
+  const links = (els: HTMLElement[], prefix: string): (string | null)[] =>
+    els.flatMap((el) =>
+      el.querySelectorAll(`a[href^="${prefix}"]`).map((a) => a.getAttribute('href') ?? null)
+    )
+  // Agency links: in the box but outside the agent rows.
+  const agencyLinks = (prefix: string): (string | null)[] =>
+    (box?.querySelectorAll(`a[href^="${prefix}"]`) ?? [])
+      .filter((a) => !a.closest('li'))
+      .map((a) => a.getAttribute('href') ?? null)
+  const agentPhone = joinValues(links(rows, 'tel:').map(telNumber))
+  return {
+    agent_phone: agentPhone,
+    agent_email: joinValues(links(rows, 'mailto:').map(mailAddress)),
+    agency_phone: joinValues(agencyLinks('tel:').map(telNumber)),
+    agency_email: joinValues(agencyLinks('mailto:').map(mailAddress)),
+    numberHidden:
+      agentPhone === null &&
+      rows.some((r) =>
+        r
+          .querySelectorAll('button')
+          .some((b) => /^show (contact )?number$/i.test(cleanText(b.text) ?? ''))
+      )
+  }
+}
+
+export const PP_HIDDEN_NUMBER_NOTE =
+  'Private Property only shows the agent’s number after “Show number” and a CAPTCHA ' +
+  'check, so PlanBoard left it out. You can type it into the listing details.'
 
 // ---------------------------------------------------------------------------------------------
 // Result
@@ -300,6 +412,7 @@ function collect({ html, networkUrls }: ScrapeCapture): {
 export function buildPpResult(capture: ScrapeCapture): ScrapeResult {
   const { photos, expected } = collect(capture)
   if (photos.length === 0) throw siteChangedError('pp')
+  const { numberHidden, ...agentContact } = extractPpContacts(capture.html)
   return {
     site: 'pp',
     externalId: capture.listing.externalId,
@@ -307,9 +420,13 @@ export function buildPpResult(capture: ScrapeCapture): ScrapeResult {
     expectedPhotoCount: expected,
     duplicatePhotos: 0,
     photos,
-    details: extractPpDetails(capture.html, capture.listing.url),
+    details: {
+      ...extractPpDetails(capture.html, capture.listing.url),
+      ...agentContact,
+      ...extractPpBond(capture.html, capture.pageData)
+    },
     warnings: countWarnings(photos.length, expected, SITE_NAME.pp),
-    notes: []
+    notes: numberHidden ? [PP_HIDDEN_NUMBER_NOTE] : []
   }
 }
 
@@ -333,10 +450,34 @@ const REJECT_COOKIES = `(() => {
   return 'no cookie prompt';
 })()`
 
+/**
+ * The listing's bond calculator, as the page rendered it (its own defaults and results). The
+ * loan term is a `<select>` whose choice is not in the HTML, so it has to be read live.
+ *
+ * Agent contact is NOT revealed: "Show number" loads a reCAPTCHA and a Cloudflare check and
+ * sends a Facebook "button click" event (checked 9 Nov 2026), so PlanBoard never clicks it.
+ * Only numbers the page already shows are read, from the saved HTML.
+ */
+const READ_BOND = `(() => {
+  const calc = document.querySelector('#bond-calculator-container');
+  if (!calc) return null;
+  const val = (name) => { const el = calc.querySelector('[name="' + name + '"]'); return el ? el.value : null };
+  const outputs = {};
+  for (const o of calc.querySelectorAll('output')) {
+    const prev = o.previousElementSibling;
+    const label = prev && prev.tagName === 'LABEL' ? (prev.innerText || '').trim() : (o.id || '');
+    outputs[label] = (o.innerText || o.textContent || '').trim();
+  }
+  return { deposit: val('deposit'), interestRate: val('interestRate'), termYears: val('term'), outputs };
+})()`
+
+export const PP_PAGE_SCRIPTS = [{ key: 'bond', script: READ_BOND }] as const
+
 export const PP_SCRAPER: SiteScraper = {
   site: 'pp',
   imageUrlPatterns: ['*://images.pp.co.za/*'],
   dismissPopupScripts: [REJECT_COOKIES, REJECT_COOKIES],
+  pageScripts: [...PP_PAGE_SCRIPTS],
   openGalleryScripts: [
     `(() => {
       const buttons = [...document.querySelectorAll('button')];

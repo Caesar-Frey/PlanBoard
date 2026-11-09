@@ -117,3 +117,57 @@ export function countWarnings(found: number, expected: number | null, siteName: 
   }
   return []
 }
+
+/**
+ * Private Property serves some descriptions with SQL-style escaped apostrophes ("you''ll",
+ * "Entertainer''s"), already in its server-rendered HTML. Two apostrophes between a letter or
+ * digit and a letter are never real prose, so they become one. Anything else is left alone.
+ */
+export function collapseEscapedQuotes<T extends string | null>(text: T): T {
+  if (text === null) return text
+  return text.replace(/(?<=[\p{L}\p{N}])''(?=\p{L})/gu, "'") as T
+}
+
+/** A rand amount as the listing shows it ("R 59 898"). Bare digits get the "R". Else null. */
+export function randText(text: string | null | undefined): string | null {
+  const t = cleanText(text)
+  if (!t) return null
+  const m = /^(?:r\s*)?(\d[\d ]*(?:[.,]\d+)?)$/i.exec(t)
+  return m?.[1] ? `R ${m[1].trim()}` : null
+}
+
+/** An interest rate as "10.75%". Null when the text is not a number. */
+export function percentText(text: string | null | undefined): string | null {
+  const t = cleanText(text)?.replace(/\s*%$/, '')
+  if (!t || !/^\d{1,2}(?:[.,]\d{1,3})?$/.test(t)) return null
+  return `${t.replace(',', '.')}%`
+}
+
+/** A phone number from a `tel:` link or visible text; null when it holds no number. */
+export function telNumber(text: string | null | undefined): string | null {
+  if (!text) return null
+  let t = text.replace(/^tel:/i, '')
+  try {
+    t = decodeURIComponent(t)
+  } catch {
+    // Keep the raw text.
+  }
+  const cleaned = cleanText(t)
+  return cleaned && /^\+?[\d ()-]{9,20}$/.test(cleaned) ? cleaned : null
+}
+
+/** An email address from a `mailto:` link or visible text; null when it holds none. */
+export function mailAddress(text: string | null | undefined): string | null {
+  if (!text) return null
+  const t = cleanText(text.replace(/^mailto:/i, '').split('?')[0])
+  return t && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t) ? t : null
+}
+
+/** Distinct non-empty values joined with ", "; null when there are none. */
+export function joinValues(values: Iterable<string | null | undefined>): string | null {
+  const out = uniqueBy(
+    [...values].filter((v): v is string => !!v && v.trim() !== ''),
+    (v) => v
+  )
+  return out.length ? out.join(', ') : null
+}

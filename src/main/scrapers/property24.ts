@@ -9,7 +9,13 @@ import {
   cleanText,
   countWarnings,
   firstNumber,
+  isRecord,
+  joinValues,
   jsonLdBlocks,
+  mailAddress,
+  percentText,
+  randText,
+  telNumber,
   paragraphText,
   parseHtml,
   pick,
@@ -215,6 +221,102 @@ export function extractP24Details(html: string, listingUrl: string): ListingDeta
   }
 }
 
+/** Bond figures, named like the `listings` columns. Only the ones the page showed. */
+export type BondFigures = Partial<
+  Pick<
+    ListingDetails,
+    | 'bond_interest_rate'
+    | 'bond_term_years'
+    | 'bond_deposit'
+    | 'bond_monthly_repayment'
+    | 'bond_once_off_costs'
+    | 'bond_min_income'
+  >
+>
+
+const str = (v: unknown): string | null => (typeof v === 'string' ? v : null)
+
+/**
+ * The on-page bond calculator: Property24's default rate and term, deposit, and the results
+ * it computed in the browser. Prefers what the page script read (`pageData.bond`, the rendered
+ * values); falls back to the saved HTML (input values and result text).
+ */
+export function extractP24Bond(html: string, pageData: Record<string, unknown> = {}): BondFigures {
+  const rendered = isRecord(pageData['bond']) ? pageData['bond'] : {}
+  const root = parseHtml(html)
+  const calc =
+    root.querySelectorAll('.p24_bondCard .p24_bondCalculator')[0] ??
+    root.querySelector('.p24_bondCalculator')
+  const scope = calc?.parentNode ?? null
+  const inputValue = (sel: string): string | null =>
+    calc?.querySelector(sel)?.getAttribute('value') ?? null
+  const text = (sel: string): string | null => (scope ? textOf(scope as HTMLElement, sel) : null)
+
+  const term = firstNumber(
+    str(rendered['termYears']) ?? inputValue('#mortgage_loanterm input[type="range"]')
+  )
+  const figures: BondFigures = {
+    bond_interest_rate: percentText(
+      str(rendered['interestRate']) ?? inputValue('.js_interestRateInput')
+    ),
+    bond_term_years: term !== null && Number.isInteger(term) ? term : null,
+    bond_deposit: randText(str(rendered['deposit']) ?? inputValue('#mortgage_input_deposit input')),
+    bond_monthly_repayment: randText(
+      str(rendered['monthlyRepayment']) ?? text('#mortgage_monthlypayment')
+    ),
+    bond_once_off_costs: randText(str(rendered['onceOffCosts']) ?? text('#mortgage_totalpayment')),
+    bond_min_income: randText(str(rendered['minGrossIncome']) ?? text('#minimum_income'))
+  }
+  return Object.fromEntries(Object.entries(figures).filter(([, v]) => v !== null)) as BondFigures
+}
+
+export interface ContactFigures {
+  agent_phone: string | null
+  agent_email: string | null
+  agency_phone: string | null
+  agency_email: string | null
+  /** A "Show Contact Number" button stands in for the number. */
+  numberHidden: boolean
+}
+
+/**
+ * Agent and agency numbers and addresses the page shows as `tel:` / `mailto:` links. Cards
+ * inside a form or pop-up (the enquiry forms) are skipped.
+ */
+export function extractP24Contacts(html: string): ContactFigures {
+  const root = parseHtml(html)
+  const outside = (el: HTMLElement): boolean => !el.closest('form') && !el.closest('.modal')
+  const cards = root.querySelectorAll('.js_agentDetails').filter(outside)
+  const links = (els: HTMLElement[], prefix: string): (string | null)[] =>
+    els.flatMap((el) =>
+      el.querySelectorAll(`a[href^="${prefix}"]`).map((a) => a.getAttribute('href') ?? null)
+    )
+  const agency = root.querySelector('#p24_listingAgency')
+  const agencyLinks = (prefix: string): (string | null)[] =>
+    agency
+      ? agency
+          .querySelectorAll(`a[href^="${prefix}"]`)
+          .filter((a) => !a.closest('.js_agentDetails'))
+          .map((a) => a.getAttribute('href') ?? null)
+      : []
+  const agentPhone = joinValues(links(cards, 'tel:').map(telNumber))
+  return {
+    agent_phone: agentPhone,
+    agent_email: joinValues(links(cards, 'mailto:').map(mailAddress)),
+    agency_phone: joinValues(agencyLinks('tel:').map(telNumber)),
+    agency_email: joinValues(agencyLinks('mailto:').map(mailAddress)),
+    numberHidden:
+      agentPhone === null &&
+      cards.some((c) =>
+        /show contact number/i.test(c.querySelector('.js_hideShowContactToggle')?.text ?? '')
+      )
+  }
+}
+
+export const P24_HIDDEN_NUMBER_NOTE =
+  'Property24 only shows the agent’s number after “Show Contact Number” and a CAPTCHA ' +
+  'check, so PlanBoard left it out. You can type it into the listing details.'
+
 // ---------------------------------------------------------------------------------------------
 // Result
 // ---------------------------------------------------------------------------------------------
@@ -267,6 +369,7 @@ export function buildP24Result(capture: ScrapeCapture): ScrapeResult {
   const dup =
     expected !== null && slots.length >= expected ? duplicateNote(slots, photos.length) : null
   const duplicatePhotos = dup && expected !== null ? Math.max(0, expected - photos.length) : 0
+  const { numberHidden, ...agentContact } = extractP24Contacts(capture.html)
 
   return {
     site: 'p24',
@@ -275,15 +378,46 @@ export function buildP24Result(capture: ScrapeCapture): ScrapeResult {
     expectedPhotoCount: expected,
     duplicatePhotos,
     photos,
-    details: extractP24Details(capture.html, capture.listing.url),
+    details: {
+      ...extractP24Details(capture.html, capture.listing.url),
+      ...agentContact,
+      ...extractP24Bond(capture.html, capture.pageData)
+    },
     warnings: dup ? [] : countWarnings(photos.length, expected, SITE_NAME.p24),
-    notes: dup ? [dup] : []
+    notes: [...(dup ? [dup] : []), ...(numberHidden ? [P24_HIDDEN_NUMBER_NOTE] : [])]
   }
 }
 
 // ---------------------------------------------------------------------------------------------
 // Live page scripts (run in the hidden window; plain DOM only)
 // ---------------------------------------------------------------------------------------------
+
+/**
+ * The listing's bond calculator, as the page rendered it (its own defaults and results). The
+ * page also has a copy inside the "Bond Calculator" pop-up; the on-page one is read.
+ *
+ * Agent contact is NOT revealed: "Show Contact Number" opens a reCAPTCHA check (checked 9 Nov
+ * 2026), so PlanBoard never clicks it. Only numbers the page already shows are read, from the
+ * saved HTML.
+ */
+const READ_BOND = `(() => {
+  const calc = [...document.querySelectorAll('.p24_bondCalculator')].find((c) => !c.closest('.modal')) ||
+    document.querySelector('.p24_bondCalculator');
+  if (!calc) return null;
+  const root = calc.parentElement || calc;
+  const val = (sel) => { const el = calc.querySelector(sel); return el ? el.value : null };
+  const txt = (sel) => { const el = root.querySelector(sel); return el ? (el.innerText || el.textContent || '').trim() : null };
+  return {
+    deposit: val('#mortgage_input_deposit input'),
+    interestRate: val('.js_interestRateInput'),
+    termYears: val('#mortgage_loanterm input[type="range"]'),
+    monthlyRepayment: txt('#mortgage_monthlypayment'),
+    onceOffCosts: txt('#mortgage_totalpayment'),
+    minGrossIncome: txt('#minimum_income')
+  };
+})()`
+
+export const P24_PAGE_SCRIPTS = [{ key: 'bond', script: READ_BOND }] as const
 
 const visible = `(el) => !!el && el.offsetParent !== null`
 
@@ -295,6 +429,7 @@ export const P24_SCRAPER: SiteScraper = {
     `(() => { const v = ${visible}; const b = document.querySelector('#cookieBannerClose');
       if (v(b)) { b.click(); return 'closed cookie notice' } return 'no cookie notice' })()`
   ],
+  pageScripts: [...P24_PAGE_SCRIPTS],
   openGalleryScripts: [
     `(() => { const b = document.querySelector('#see-all-images-button') ||
         [...document.querySelectorAll('div,button,a')].find((e) => /^See all \\d+ images?$/i.test((e.innerText || '').trim()));

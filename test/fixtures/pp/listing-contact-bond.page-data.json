@@ -1,0 +1,13 @@
+{
+  "bond": {
+    "deposit": "R 0",
+    "interestRate": "10.5",
+    "termYears": "20",
+    "outputs": {
+      "Monthly repayments": "R 27 855",
+      "Loan Value (Capital):": "R 2 790 000",
+      "Total interest:": "R 3 895 152",
+      "Total repayment:": "R 6 685 152"
+    }
+  }
+}

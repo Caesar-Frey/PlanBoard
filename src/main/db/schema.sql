@@ -34,6 +34,20 @@ CREATE TABLE IF NOT EXISTS listings (
   photo_count_listed   INTEGER,
   photo_duplicates     INTEGER,
   surveyed_at          INTEGER,
+  -- Version 3: agent contact and the listing's bond-calculator figures, as shown.
+  agent_phone            TEXT,
+  agent_email            TEXT,
+  agency_phone           TEXT,
+  agency_email           TEXT,
+  bond_interest_rate     TEXT,
+  bond_term_years        REAL,
+  bond_deposit           TEXT,
+  bond_monthly_repayment TEXT,
+  bond_once_off_costs    TEXT,
+  bond_min_income        TEXT,
+  bond_total_interest    TEXT,
+  bond_total_repayment   TEXT,
+  bond_as_of             INTEGER,
   UNIQUE (site, external_id)
 );
 

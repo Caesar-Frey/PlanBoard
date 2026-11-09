@@ -42,21 +42,73 @@ function makeV1Library(): void {
   old.close()
 }
 
+const V3_COLUMNS = [
+  'photo_count_listed',
+  'photo_duplicates',
+  'surveyed_at',
+  'agent_phone',
+  'agent_email',
+  'agency_phone',
+  'agency_email',
+  'bond_interest_rate',
+  'bond_term_years',
+  'bond_deposit',
+  'bond_monthly_repayment',
+  'bond_once_off_costs',
+  'bond_min_income',
+  'bond_total_interest',
+  'bond_total_repayment',
+  'bond_as_of'
+]
+
+/** A version 2 library: the v1 table plus the survey facts, with two listings. */
+function makeV2Library(): void {
+  const old = new Database(file)
+  old.exec(V1_LISTINGS)
+  for (const col of ['photo_count_listed', 'photo_duplicates', 'surveyed_at']) {
+    old.exec(`ALTER TABLE listings ADD COLUMN ${col} INTEGER`)
+  }
+  const insert = old.prepare(
+    `INSERT INTO listings (site, external_id, url, title, description, folder_path, created_at, surveyed_at)
+     VALUES (?, ?, ?, ?, ?, ?, 5, 7)`
+  )
+  insert.run(
+    'pp',
+    'T1',
+    'https://www.privateproperty.co.za/for-sale/a/b/c/d/T1',
+    "Owner''s pick",
+    "Why you''ll love it:\n- Entertainer''s Dream\nA 'quoted' word and '' alone",
+    'listings/D_PP-T1'
+  )
+  insert.run(
+    'p24',
+    '2',
+    'https://www.property24.com/for-sale/a/b/c/1/2',
+    'House',
+    "It''s a P24 listing",
+    'listings/A_P24-2'
+  )
+  old.pragma('user_version = 2')
+  old.close()
+}
+
 describe('migrations', () => {
-  it('is at version 2 with the survey-fact columns on a new library', () => {
-    expect(SCHEMA_VERSION).toBe(2)
+  it('is at version 3 with the survey-fact, contact and bond columns on a new library', () => {
+    expect(SCHEMA_VERSION).toBe(3)
     const db = openDatabase(file)
-    expect(db.pragma('user_version', { simple: true })).toBe(2)
+    expect(db.pragma('user_version', { simple: true })).toBe(3)
+    expect(columns(db, 'listings')).toEqual(expect.arrayContaining(V3_COLUMNS))
     expect(columns(db, 'listings')).toEqual(
       expect.arrayContaining(['photo_count_listed', 'photo_duplicates', 'surveyed_at'])
     )
     db.close()
   })
 
-  it('steps a version 1 library up to 2 and keeps its data', () => {
+  it('steps a version 1 library up to 3 and keeps its data', () => {
     makeV1Library()
     const db = openDatabase(file)
-    expect(db.pragma('user_version', { simple: true })).toBe(2)
+    expect(db.pragma('user_version', { simple: true })).toBe(3)
+    expect(columns(db, 'listings')).toEqual(expect.arrayContaining(V3_COLUMNS))
     expect(columns(db, 'listings')).toEqual(
       expect.arrayContaining(['photo_count_listed', 'photo_duplicates', 'surveyed_at'])
     )
@@ -76,8 +128,9 @@ describe('migrations', () => {
     makeV1Library()
     openDatabase(file).close()
     const db = openDatabase(file)
-    expect(db.pragma('user_version', { simple: true })).toBe(2)
+    expect(db.pragma('user_version', { simple: true })).toBe(3)
     expect(columns(db, 'listings').filter((c) => c === 'surveyed_at')).toHaveLength(1)
+    expect(columns(db, 'listings').filter((c) => c === 'agent_phone')).toHaveLength(1)
     expect(db.prepare('SELECT COUNT(*) AS n FROM listings').get()).toEqual({ n: 1 })
     db.close()
   })
@@ -92,6 +145,58 @@ describe('migrations', () => {
     expect(columns(db, 'listings')).toEqual(
       expect.arrayContaining(['photo_count_listed', 'photo_duplicates', 'surveyed_at'])
     )
+    db.close()
+  })
+
+  it('repairs Private Property descriptions with doubled apostrophes, once and safely', () => {
+    makeV2Library()
+    const db = openDatabase(file)
+    expect(db.pragma('user_version', { simple: true })).toBe(3)
+    const rows = db
+      .prepare('SELECT external_id, title, description FROM listings ORDER BY id')
+      .all() as { external_id: string; title: string; description: string }[]
+    expect(rows).toEqual([
+      {
+        external_id: 'T1',
+        // Only the description is repaired: titles could have been typed by hand.
+        title: "Owner''s pick",
+        description: "Why you'll love it:\n- Entertainer's Dream\nA 'quoted' word and '' alone"
+      },
+      // Property24 never had the artefact, so its text is left exactly as it was.
+      { external_id: '2', title: 'House', description: "It''s a P24 listing" }
+    ])
+    db.close()
+    // Opening again is harmless.
+    const again = openDatabase(file)
+    expect(
+      (
+        again.prepare("SELECT description FROM listings WHERE external_id = 'T1'").get() as {
+          description: string
+        }
+      ).description
+    ).toBe("Why you'll love it:\n- Entertainer's Dream\nA 'quoted' word and '' alone")
+    // Text typed after the step up is never touched again.
+    again
+      .prepare("UPDATE listings SET description = 'Typed: it''''s' WHERE external_id = 'T1'")
+      .run()
+    again.close()
+    const third = openDatabase(file)
+    expect(
+      third.prepare("SELECT description FROM listings WHERE external_id = 'T1'").get()
+    ).toEqual({ description: "Typed: it''s" })
+    third.close()
+  })
+
+  it('steps a version 2 library up to 3 and leaves the new columns empty', () => {
+    makeV2Library()
+    const db = openDatabase(file)
+    expect(db.prepare("SELECT * FROM listings WHERE external_id = 'T1'").get()).toMatchObject({
+      agent_phone: null,
+      bond_interest_rate: null,
+      bond_term_years: null,
+      bond_as_of: null,
+      surveyed_at: 7
+    })
     db.close()
   })
 

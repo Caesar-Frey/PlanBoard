@@ -19,6 +19,24 @@ export interface ListingFields {
   description: string | null
   agent: string | null
   agency: string | null
+  // Version 3: agent contact, only as the listing shows it (never through an enquiry form).
+  agent_phone: string | null
+  agent_email: string | null
+  agency_phone: string | null
+  agency_email: string | null
+  // Version 3: the listing's own bond calculator defaults and results, as shown ("R 27 855").
+  bond_interest_rate: string | null
+  bond_term_years: number | null
+  bond_deposit: string | null
+  bond_monthly_repayment: string | null
+  /** Property24: "Total once-off costs" (transfer and bond registration costs together). */
+  bond_once_off_costs: string | null
+  /** Property24: "Min gross monthly income". */
+  bond_min_income: string | null
+  /** Private Property: "Total interest". */
+  bond_total_interest: string | null
+  /** Private Property: "Total repayment". */
+  bond_total_repayment: string | null
 }
 
 export type ListingFieldKey = keyof ListingFields
@@ -43,8 +61,59 @@ export const LISTING_FIELD_KEYS = [
   'rates',
   'agent',
   'agency',
+  'agent_phone',
+  'agent_email',
+  'agency_phone',
+  'agency_email',
+  'bond_interest_rate',
+  'bond_term_years',
+  'bond_deposit',
+  'bond_monthly_repayment',
+  'bond_once_off_costs',
+  'bond_min_income',
+  'bond_total_interest',
+  'bond_total_repayment',
   'description'
 ] as const satisfies readonly ListingFieldKey[]
+
+export const CONTACT_FIELD_KEYS = [
+  'agent',
+  'agent_phone',
+  'agent_email',
+  'agency',
+  'agency_phone',
+  'agency_email'
+] as const satisfies readonly ListingFieldKey[]
+
+export const BOND_FIELD_KEYS = [
+  'bond_interest_rate',
+  'bond_term_years',
+  'bond_deposit',
+  'bond_monthly_repayment',
+  'bond_once_off_costs',
+  'bond_min_income',
+  'bond_total_interest',
+  'bond_total_repayment'
+] as const satisfies readonly ListingFieldKey[]
+
+/** The details form's sections, in order. Every key appears in exactly one. */
+export const LISTING_FIELD_GROUPS: readonly {
+  id: 'property' | 'contact' | 'bond'
+  label: string
+  keys: readonly ListingFieldKey[]
+}[] = [
+  {
+    id: 'property',
+    label: 'Listing details',
+    keys: LISTING_FIELD_KEYS.filter(
+      (k) =>
+        !(CONTACT_FIELD_KEYS as readonly string[]).includes(k) &&
+        !(BOND_FIELD_KEYS as readonly string[]).includes(k)
+    )
+  },
+  { id: 'contact', label: 'Agent contact', keys: CONTACT_FIELD_KEYS },
+  { id: 'bond', label: 'Bond reference', keys: BOND_FIELD_KEYS }
+]
 
 export const LISTING_FIELD_LABELS: Record<ListingFieldKey, string> = {
   title: 'Title',
@@ -60,14 +129,34 @@ export const LISTING_FIELD_LABELS: Record<ListingFieldKey, string> = {
   rates: 'Rates & taxes',
   description: 'Description',
   agent: 'Agent',
-  agency: 'Agency'
+  agency: 'Agency',
+  agent_phone: 'Agent phone',
+  agent_email: 'Agent email',
+  agency_phone: 'Agency phone',
+  agency_email: 'Agency email',
+  bond_interest_rate: 'Interest rate',
+  bond_term_years: 'Loan term (years)',
+  bond_deposit: 'Deposit',
+  bond_monthly_repayment: 'Monthly repayment',
+  bond_once_off_costs: 'Total once-off costs',
+  bond_min_income: 'Min gross monthly income',
+  bond_total_interest: 'Total interest',
+  bond_total_repayment: 'Total repayment'
 }
 
-const NUMBER_FIELDS = new Set<ListingFieldKey>(['bedrooms', 'bathrooms', 'garages'])
+const NUMBER_FIELDS = new Set<ListingFieldKey>([
+  'bedrooms',
+  'bathrooms',
+  'garages',
+  'bond_term_years'
+])
 
 export const isNumberField = (key: ListingFieldKey): boolean => NUMBER_FIELDS.has(key)
 
 const MAX_TEXT = 300
+/** A field holding one or more email addresses ("a@x.co.za, b@x.co.za"). */
+const EMAIL_FIELDS = new Set<ListingFieldKey>(['agent_email', 'agency_email'])
+const EMAIL_LIST = /^[^\s@,]+@[^\s@,]+\.[^\s@,]+(?:\s*,\s*[^\s@,]+@[^\s@,]+\.[^\s@,]+)*$/
 const MAX_DESCRIPTION = 20_000
 
 export const EMPTY_FIELDS_INPUT: ListingFieldsInput = Object.fromEntries(
@@ -120,6 +209,11 @@ export function validateListingFields(raw: unknown): ValidatedFields {
     const max = key === 'description' ? MAX_DESCRIPTION : MAX_TEXT
     if (text.length > max) {
       errors[key] = `${LISTING_FIELD_LABELS[key]} is too long (at most ${max} characters).`
+      continue
+    }
+    if (EMAIL_FIELDS.has(key) && !EMAIL_LIST.test(text)) {
+      errors[key] =
+        `${LISTING_FIELD_LABELS[key]} must be an email address (separate several with commas), or empty.`
       continue
     }
     value[key] = text

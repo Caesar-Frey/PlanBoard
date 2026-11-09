@@ -66,6 +66,22 @@ export interface ScrapeCapture {
   html: string
   /** Image URLs seen by `session.webRequest.onCompleted`, in the order they completed. */
   networkUrls: string[]
+  /**
+   * What each `pageScripts` entry returned, by key (rendered values that `outerHTML` doesn't
+   * hold, such as calculator inputs). Absent or partial when a script failed.
+   */
+  pageData?: Record<string, unknown>
+}
+
+/**
+ * A read-only page script run before the gallery opens. It may click a plain "show number"
+ * style button, but never submits a form, follows a link or types into a field.
+ */
+export interface PageScript {
+  key: string
+  script: string
+  /** Pause after it, so content it revealed can render. Default 0. */
+  pauseAfterMs?: number
 }
 
 /**
@@ -79,6 +95,8 @@ export interface SiteScraper {
   imageUrlPatterns: string[]
   /** Run in order, with a short pause between, to close cookie/alert pop-ups (never accept-all). */
   dismissPopupScripts: string[]
+  /** Run in order before the gallery opens; results go to `ScrapeCapture.pageData`. */
+  pageScripts?: PageScript[]
   /** Run in order, with a pause between, to open the full gallery. */
   openGalleryScripts: string[]
   /** One step through the gallery; must return `{ pending: number }` (images not loaded yet). */
@@ -143,5 +161,17 @@ export const EMPTY_DETAILS: ListingDetails = {
   rates: null,
   description: null,
   agent: null,
-  agency: null
+  agency: null,
+  agent_phone: null,
+  agent_email: null,
+  agency_phone: null,
+  agency_email: null,
+  bond_interest_rate: null,
+  bond_term_years: null,
+  bond_deposit: null,
+  bond_monthly_repayment: null,
+  bond_once_off_costs: null,
+  bond_min_income: null,
+  bond_total_interest: null,
+  bond_total_repayment: null
 }

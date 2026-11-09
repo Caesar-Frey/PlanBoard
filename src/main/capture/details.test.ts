@@ -21,7 +21,19 @@ const DETAILS: ListingDetails = {
   rates: 'R 1 650',
   description: 'A lovely family home.\n\nBig garden with pool.',
   agent: 'Agent Name',
-  agency: 'Agency Name'
+  agency: 'Agency Name',
+  agent_phone: null,
+  agent_email: null,
+  agency_phone: '031 000 0000',
+  agency_email: 'office@example.com',
+  bond_interest_rate: '10.75%',
+  bond_term_years: 20,
+  bond_deposit: 'R 0',
+  bond_monthly_repayment: 'R 59 898',
+  bond_once_off_costs: 'R 601 865',
+  bond_min_income: 'R 199 661',
+  bond_total_interest: null,
+  bond_total_repayment: null
 }
 
 const input = (over: Partial<DetailsInput> = {}): DetailsInput => ({
@@ -62,6 +74,53 @@ describe('formatPropertyDetails', () => {
     ]) {
       expect(text).toContain(line)
     }
+  })
+
+  it('has an Agent contact section', () => {
+    expect(text).toContain(
+      'AGENT CONTACT\n' +
+        '-------------\n' +
+        'Agent:          Agent Name\n' +
+        'Agent phone:    Not listed\n' +
+        'Agent email:    Not listed\n' +
+        'Agency:         Agency Name\n' +
+        'Agency phone:   031 000 0000\n' +
+        'Agency email:   office@example.com\n'
+    )
+  })
+
+  it('has a Bond reference section with the figures the site showed, dated', () => {
+    const t = formatPropertyDetails(input({ bondAsOf: new Date(2026, 10, 9) }))
+    expect(t).toContain(
+      'BOND REFERENCE (site defaults, 9 November 2026)\n' +
+        '-----------------------------------------------\n' +
+        'Interest rate:             10.75%\n' +
+        'Loan term:                 20 years\n' +
+        'Deposit:                   R 0\n' +
+        'Monthly repayment:         R 59 898\n' +
+        'Total once-off costs:      R 601 865\n' +
+        'Min gross monthly income:  R 199 661\n' +
+        '(The listing’s own bond calculator with its default rate and term: a reference, not a quote.)\n'
+    )
+    // Figures the site doesn't show are left out, not listed as missing.
+    expect(t).not.toContain('Total interest')
+    // Sections come before the description.
+    expect(t.indexOf('AGENT CONTACT')).toBeLessThan(t.indexOf('BOND REFERENCE'))
+    expect(t.indexOf('BOND REFERENCE')).toBeLessThan(t.indexOf('DESCRIPTION'))
+  })
+
+  it('dates the bond figures by the survey when no bond date is known', () => {
+    expect(text).toContain('BOND REFERENCE (site defaults, 8 November 2026)')
+  })
+
+  it('says so when no bond figures were read', () => {
+    const none = Object.fromEntries(
+      Object.entries(DETAILS).map(([k, v]) => [k, k.startsWith('bond_') ? null : v])
+    ) as unknown as ListingDetails
+    const t = formatPropertyDetails(input({ details: none }))
+    expect(t).toContain(
+      'BOND REFERENCE\n--------------\nNo bond figures were read from the listing.\n'
+    )
   })
 
   it('explains the photo counts, including duplicates', () => {

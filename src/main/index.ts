@@ -1,7 +1,7 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
 import { runScrapeCli } from './cli'
-import { scrapeUrlFromArgv } from './cliArgs'
+import { dumpDirFromArgv, scrapeUrlFromArgv } from './cliArgs'
 import { registerIpc } from './ipc'
 import { handleMediaProtocol, registerMediaScheme } from './mediaProtocol'
 
@@ -86,7 +86,7 @@ function startApp(): void {
 }
 
 /** `--scrape <url>`: the dev CLI (see cli.ts). No main window, no database, no settings. */
-function startScrapeCli(url: string): void {
+function startScrapeCli(url: string, dumpDir: string | null): void {
   // Separate, throwaway profile so a running copy of the app is never touched.
   app.setPath('userData', join(app.getPath('temp'), 'planboard-scrape-cli'))
   app.dock?.hide()
@@ -94,7 +94,7 @@ function startScrapeCli(url: string): void {
   app.on('window-all-closed', () => undefined)
   app
     .whenReady()
-    .then(() => runScrapeCli(url))
+    .then(() => runScrapeCli(url, dumpDir))
     .then((code) => app.exit(code))
     .catch((err: unknown) => {
       console.error('[planboard] scrape CLI failed', err)
@@ -103,5 +103,5 @@ function startScrapeCli(url: string): void {
 }
 
 const scrapeUrl = scrapeUrlFromArgv(process.argv)
-if (scrapeUrl !== null) startScrapeCli(scrapeUrl)
+if (scrapeUrl !== null) startScrapeCli(scrapeUrl, dumpDirFromArgv(process.argv))
 else startApp()

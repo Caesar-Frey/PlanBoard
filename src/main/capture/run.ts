@@ -15,6 +15,7 @@ import type {
   CaptureStage,
   ManualCaptureRequest
 } from '../../shared/ipc'
+import { BOND_FIELD_KEYS } from '../../shared/listingFields'
 import {
   downloadWarnings,
   duplicateNote,
@@ -271,6 +272,8 @@ export async function runCapture(
     await mkdir(folder, { recursive: true })
     const stale = await removePartials(folder)
     if (stale > 0) log(`removed ${stale} unfinished download(s) from an earlier run`)
+    const surveyedAt = deps.now()
+    const hasBond = BOND_FIELD_KEYS.some((k) => result.details[k] !== null)
     listingId = db.transaction(() =>
       upsertListing(db, {
         ...result.details,
@@ -281,8 +284,10 @@ export async function runCapture(
         photo_count_expected: counts.expected ?? existing?.photo_count_expected ?? null,
         photo_count_listed: counts.listed,
         photo_duplicates: counts.listed !== null ? counts.duplicates : null,
-        surveyed_at: deps.now(),
-        created_at: deps.now()
+        surveyed_at: surveyedAt,
+        // Manual pastes carry the stored details back, not newly read figures.
+        bond_as_of: input.kind === 'scrape' && hasBond ? surveyedAt : null,
+        created_at: surveyedAt
       })
     )()
   } catch (err) {
@@ -427,7 +432,8 @@ export async function runCapture(
         url: result.url,
         details,
         counts,
-        surveyedAt: new Date(deps.now())
+        surveyedAt: new Date(deps.now()),
+        bondAsOf: stored?.bond_as_of ? new Date(stored.bond_as_of) : null
       })
       await writeFileAtomic(detailsPath, Buffer.from(text, 'utf8'))
       detailsFile = 'written'

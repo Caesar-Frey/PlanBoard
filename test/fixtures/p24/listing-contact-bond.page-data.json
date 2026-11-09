@@ -1,0 +1,10 @@
+{
+  "bond": {
+    "deposit": "0",
+    "interestRate": "10.75",
+    "termYears": "20",
+    "monthlyRepayment": "R 101 522",
+    "onceOffCosts": "R 1 101 037",
+    "minGrossIncome": "R 338 409"
+  }
+}

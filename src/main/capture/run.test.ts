@@ -217,6 +217,41 @@ describe('runCapture', () => {
     expect(text).not.toContain('R 9')
   })
 
+  it('"Survey again" fills the bond figures of an older listing and dates them', async () => {
+    await runCapture(
+      makeDeps(async () => scrapeResult(['1']), imageFetch()),
+      { kind: 'scrape', url: URL24 },
+      new AbortController().signal,
+      () => {}
+    )
+    expect(findListing(db, 'p24', '115212892')?.bond_as_of).toBeNull()
+    await runCapture(
+      makeDeps(
+        async () =>
+          scrapeResult(['1'], {
+            details: {
+              ...EMPTY_DETAILS,
+              suburb: 'Hillcrest',
+              bond_interest_rate: '10.75%',
+              bond_term_years: 20,
+              bond_monthly_repayment: 'R 59 898'
+            }
+          }),
+        imageFetch()
+      ),
+      { kind: 'scrape', url: URL24 },
+      new AbortController().signal,
+      () => {}
+    )
+    const row = findListing(db, 'p24', '115212892')!
+    expect(row).toMatchObject({ bond_interest_rate: '10.75%', bond_term_years: 20 })
+    expect(row.bond_as_of).toEqual(row.surveyed_at)
+    const text = readFileSync(join(folder(), 'Property_Details.txt'), 'utf8')
+    expect(text).toContain('AGENT CONTACT')
+    expect(text).toMatch(/^BOND REFERENCE \(site defaults, .+\)$/m)
+    expect(text).toMatch(/^Monthly repayment:\s+R 59 898$/m)
+  })
+
   it('stores the listed count, duplicates and survey time for later regeneration', async () => {
     await runCapture(
       makeDeps(

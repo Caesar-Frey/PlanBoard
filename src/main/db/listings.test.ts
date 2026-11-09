@@ -104,6 +104,47 @@ describe('upsertListing', () => {
     expect(getListing(db, id)).toMatchObject({ title: 'Mine', price: 'R 2' })
   })
 
+  it('"Survey again" fills the new contact and bond fields of an older listing', () => {
+    const id = upsertListing(db, record({ agent: 'Agent Name' }))
+    upsertListing(
+      db,
+      record({
+        agent: 'Someone Else',
+        agency_phone: '031 000 0000',
+        bond_interest_rate: '10.75%',
+        bond_term_years: 20,
+        bond_monthly_repayment: 'R 59 898',
+        bond_as_of: 5000
+      })
+    )
+    expect(getListing(db, id)).toMatchObject({
+      agent: 'Agent Name',
+      agency_phone: '031 000 0000',
+      bond_interest_rate: '10.75%',
+      bond_term_years: 20,
+      bond_monthly_repayment: 'R 59 898',
+      bond_as_of: 5000
+    })
+  })
+
+  it('keeps the bond date of figures it keeps; a later survey only dates figures it fills', () => {
+    const id = upsertListing(
+      db,
+      record({ bond_interest_rate: '10.75%', bond_monthly_repayment: 'R 1', bond_as_of: 5000 })
+    )
+    upsertListing(db, record({ bond_interest_rate: '11%', bond_as_of: 9000 }))
+    expect(getListing(db, id)).toMatchObject({ bond_interest_rate: '10.75%', bond_as_of: 5000 })
+
+    // All bond figures cleared by hand: the next survey's figures come with its own date.
+    updateListingDetails(db, id, { ...EMPTY_DETAILS, title: 'House' })
+    upsertListing(db, record({ bond_interest_rate: '11%', bond_as_of: 9000 }))
+    expect(getListing(db, id)).toMatchObject({ bond_interest_rate: '11%', bond_as_of: 9000 })
+
+    // A survey that found no figures leaves the date alone.
+    upsertListing(db, record({ bond_as_of: null }))
+    expect(getListing(db, id)?.bond_as_of).toBe(9000)
+  })
+
   it('keeps the same external id on two sites apart', () => {
     const a = upsertListing(db, record())
     const b = upsertListing(db, record({ site: 'pp' }))

@@ -3,6 +3,8 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   buildP24Result,
+  extractP24Bond,
+  extractP24Contacts,
   extractP24Details,
   extractP24GallerySlots,
   isP24GalleryImageUrl,
@@ -19,6 +21,11 @@ const html = readFileSync(resolve(FIXTURES, 'listing-gallery-open.html'), 'utf8'
 const networkUrls = JSON.parse(
   readFileSync(resolve(FIXTURES, 'network-urls.json'), 'utf8')
 ) as string[]
+
+const contactBondHtml = readFileSync(resolve(FIXTURES, 'listing-contact-bond.html'), 'utf8')
+const contactBondData = JSON.parse(
+  readFileSync(resolve(FIXTURES, 'listing-contact-bond.page-data.json'), 'utf8')
+) as Record<string, unknown>
 
 const LISTING = {
   site: 'p24' as const,
@@ -230,9 +237,11 @@ describe('buildP24Result', () => {
     const result = buildP24Result({ listing: LISTING, html, networkUrls })
     expect(result.duplicatePhotos).toBe(1)
     expect(result.warnings).toEqual([])
-    expect(result.notes).toHaveLength(1)
+    // The first note is the duplicate; the second says the agent number wasn't fetched.
+    expect(result.notes).toHaveLength(2)
     expect(result.notes[0]).toMatch(/appears twice/)
     expect(result.notes[0]).toMatch(/63/)
+    expect(result.notes[1]).toMatch(/Show Contact Number/)
   })
 
   it('ignores network-only images when the page gallery is already complete', () => {
@@ -286,5 +295,81 @@ describe('buildP24Result', () => {
     expect((caught as ScraperError).code).toBe('no-photos')
     expect((caught as ScraperError).message).toMatch(/may have changed/)
     expect((caught as ScraperError).message).toMatch(/manual fallback/)
+  })
+})
+
+describe('extractP24Bond', () => {
+  it('reads the calculator as the page rendered it', () => {
+    expect(extractP24Bond(contactBondHtml, contactBondData)).toEqual({
+      bond_interest_rate: '10.75%',
+      bond_term_years: 20,
+      bond_deposit: 'R 0',
+      bond_monthly_repayment: 'R 101 522',
+      bond_once_off_costs: 'R 1 101 037',
+      bond_min_income: 'R 338 409'
+    })
+  })
+
+  it('falls back to the saved HTML when the page script found nothing', () => {
+    // The HTML has the server's "r 101 522"; the page shows it in capitals.
+    expect(extractP24Bond(contactBondHtml, {})).toEqual({
+      bond_interest_rate: '10.75%',
+      bond_term_years: 20,
+      bond_deposit: 'R 0',
+      bond_monthly_repayment: 'R 101 522',
+      bond_once_off_costs: 'R 1 101 037',
+      bond_min_income: 'R 338 409'
+    })
+  })
+
+  it('returns no figures for a page without a calculator', () => {
+    expect(extractP24Bond('<html></html>', { bond: null })).toEqual({})
+  })
+})
+
+describe('extractP24Contacts', () => {
+  it('finds no number on the page: it sits behind "Show Contact Number"', () => {
+    expect(extractP24Contacts(contactBondHtml)).toEqual({
+      agent_phone: null,
+      agent_email: null,
+      agency_phone: null,
+      agency_email: null,
+      numberHidden: true
+    })
+  })
+
+  it('reads numbers and addresses the page does show as links', () => {
+    // Synthetic markup with placeholder values (no live listing showed any).
+    const page = `<div class="p24_agent"><div class="js_agentDetails">
+        <h5><span>Agent Name</span></h5>
+        <a href="tel:082%20000%200000">082 000 0000</a>
+        <a href="mailto:agent@example.com">Email</a></div></div>
+      <form><div class="js_agentDetails"><a href="tel:011 000 0000">x</a></div></form>
+      <div id="p24_listingAgency"><a href="tel:+27310000000">Call</a>
+        <a href="mailto:office@example.com">Email</a></div>`
+    expect(extractP24Contacts(page)).toEqual({
+      agent_phone: '082 000 0000',
+      agent_email: 'agent@example.com',
+      agency_phone: '+27310000000',
+      agency_email: 'office@example.com',
+      numberHidden: false
+    })
+  })
+})
+
+describe('buildP24Result contact and bond details', () => {
+  it('adds the bond figures and notes that the agent number was not fetched', () => {
+    const result = buildP24Result({
+      listing: LISTING,
+      html: html + contactBondHtml,
+      networkUrls,
+      pageData: contactBondData
+    })
+    expect(result.details).toMatchObject({
+      bond_interest_rate: '10.75%',
+      bond_monthly_repayment: 'R 101 522',
+      agent_phone: null
+    })
+    expect(result.notes.join(' ')).toMatch(/CAPTCHA/)
   })
 })

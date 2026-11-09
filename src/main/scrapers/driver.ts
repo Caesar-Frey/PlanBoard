@@ -39,6 +39,23 @@ export interface ScrapeOptions {
   onStage?: (stage: 'foundation') => void
   /** Aborting closes the hidden window at once and rejects with a `cancelled` ScraperError. */
   signal?: AbortSignal
+  /** Dev only (`npm run scrape -- <url> --dump <dir>`): page snapshots and a request log. */
+  debug?: ScrapeDebug
+}
+
+export interface TracedRequest {
+  /** Which driver step was running: `load`, `popups`, `page:<key>`, `gallery`. */
+  phase: string
+  method: string
+  url: string
+  resourceType: string
+  /** Request body as text (POSTs only), cut to 2000 characters. */
+  body: string | null
+}
+
+export interface ScrapeDebug {
+  snapshot(label: string, html: string, pageData: Record<string, unknown>): void
+  request(entry: TracedRequest): void
 }
 
 const LOAD_TIMEOUT_MS = 30_000
@@ -109,6 +126,22 @@ export async function scrapeListing(
   const onDownload = (event: Electron.Event): void => event.preventDefault()
   ses.on('will-download', onDownload)
 
+  let phase = 'load'
+  const debug = options.debug
+  if (debug) {
+    ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
+      const bytes = details.uploadData?.flatMap((u) => (u.bytes ? [u.bytes] : [])) ?? []
+      debug.request({
+        phase,
+        method: details.method,
+        url: details.url,
+        resourceType: details.resourceType,
+        body: bytes.length ? Buffer.concat(bytes).toString('utf8').slice(0, 2000) : null
+      })
+      callback({})
+    })
+  }
+
   const networkUrls: string[] = []
   ses.webRequest.onCompleted({ urls: scraper.imageUrlPatterns }, (details) => {
     if (details.statusCode >= 200 && details.statusCode < 300) networkUrls.push(details.url)
@@ -150,11 +183,16 @@ export async function scrapeListing(
 
   const run = async <T>(script: string): Promise<T> =>
     (await withTimeout(wc.executeJavaScript(script, true), SCRIPT_TIMEOUT_MS, 'Page script')) as T
+  const pageData: Record<string, unknown> = {}
   const capture = async (): Promise<ScrapeCapture> => ({
     listing,
     html: await run<string>('document.documentElement.outerHTML'),
-    networkUrls: [...networkUrls]
+    networkUrls: [...networkUrls],
+    pageData: { ...pageData }
   })
+  const snapshot = async (label: string): Promise<void> => {
+    if (debug) debug.snapshot(label, (await capture()).html, { ...pageData })
+  }
 
   try {
     log(`Survey: loading ${listing.url}`)
@@ -177,12 +215,29 @@ export async function scrapeListing(
     await sleep(SETTLE_MS)
     checkCancel()
 
+    phase = 'popups'
     for (const script of scraper.dismissPopupScripts) {
       log(`Pop-ups: ${await run<string>(script)}`)
       await sleep(POPUP_PAUSE_MS)
       checkCancel()
     }
+    await snapshot('after-popups')
 
+    // Agent contacts and calculator figures: best effort, a failure never stops the survey.
+    for (const step of scraper.pageScripts ?? []) {
+      phase = `page:${step.key}`
+      try {
+        pageData[step.key] = await run<unknown>(step.script)
+        log(`Details: ${step.key} read`)
+      } catch (err) {
+        log(`Details: ${step.key} failed (${(err as Error).message})`)
+      }
+      if (step.pauseAfterMs) await sleep(step.pauseAfterMs)
+      checkCancel()
+    }
+    await snapshot('after-page-scripts')
+
+    phase = 'gallery'
     log(`Foundation: opening the gallery`)
     options.onStage?.('foundation')
     for (const script of scraper.openGalleryScripts) {
@@ -217,7 +272,9 @@ export async function scrapeListing(
     log(`Gallery: stopped (${stopReason})`)
 
     checkCancel()
-    const result = scraper.build(await capture())
+    const finalCapture = await capture()
+    if (debug) debug.snapshot('final', finalCapture.html, finalCapture.pageData ?? {})
+    const result = scraper.build(finalCapture)
     if (stopReason === 'timed out' && result.expectedPhotoCount !== null) {
       if (result.photos.length < result.expectedPhotoCount - result.duplicatePhotos) {
         result.warnings.push(`Stopped looking after ${Math.round(timeoutMs / 1000)} seconds.`)
@@ -230,6 +287,7 @@ export async function scrapeListing(
   } finally {
     signal?.removeEventListener('abort', onAbort)
     ses.webRequest.onCompleted(null)
+    if (debug) ses.webRequest.onBeforeRequest(null)
     ses.removeListener('will-download', onDownload)
     if (!win.isDestroyed()) win.destroy()
     void ses.clearStorageData().catch(() => undefined)
