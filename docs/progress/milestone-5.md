@@ -9,7 +9,7 @@ Resumable checklist. On resume: read this file and `git log`, continue at the fi
 - [x] (c) Large preview: tagging panel — `tagging/TaggingPanel.tsx`, `tagging/TagInput.tsx` (combobox), `components/useAutosave.ts`. Checked in the scratch app: room, tag create, "kitchen island" → "Island?", Esc closes only the list, → in a field doesn't navigate, marks + notes for both people.
 - [x] (d) Grid: room/tag-count/mark indicators + bulk room ("Set rooms for several" mode, Shift-click ranges, sticky bar with room select). Checked in the scratch app: 5 photos set to Bedroom.
 - [x] (e) Tag management in Settings → Feature tags (`tagging/TagManager.tsx`): rename, merge with confirmation, rename-clash → merge offer, "Possible duplicates" from the fuzzy matcher. Checked in the scratch app: rename, Kitchen island → Island merge (db rows moved, old tag gone).
-- [ ] (f) Verification in the built app (scratch profile + scratch library), CLAUDE.md update
+- [x] (f) Verification in the built app + CLAUDE.md update. 345 tests, typecheck, lint, prettier green; greps clean (no console.log, no hex outside tokens.css, hooks above early returns). In-app: rooms single + bulk, tag auto-complete, rename + merge, marks/notes for both people, Recent surveys tagged % 15% → 53%, and 50% after a photo is marked removed.
 
 ## Decisions
 
@@ -28,3 +28,5 @@ Resumable checklist. On resume: read this file and `git log`, continue at the fi
 - Git identity: commits pass the author explicitly through GIT_AUTHOR_*/GIT_COMMITTER_* env vars (no git user configured on this machine).
 
 ## Notes
+
+- Follow-ups not done: delete an unused tag; `ListingNotes` could reuse `useAutosave` (left alone to avoid touching working code); room chips use a lot of panel height (could collapse to a select).

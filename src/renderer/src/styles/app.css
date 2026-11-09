@@ -1614,6 +1614,11 @@ code {
   outline-color: var(--bottle-green);
 }
 
+/* Who tagged it: a dark rim keeps a brass swatch visible on a brass chip. */
+.chip-button .swatch {
+  border-color: var(--bottle-green);
+}
+
 /* Auto-complete */
 
 .tag-input {
