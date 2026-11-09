@@ -96,9 +96,11 @@ export const BOND_FIELD_KEYS = [
   'bond_total_repayment'
 ] as const satisfies readonly ListingFieldKey[]
 
+export type ListingFieldGroupId = 'property' | 'contact' | 'bond' | 'description'
+
 /** The details form's sections, in order. Every key appears in exactly one. */
 export const LISTING_FIELD_GROUPS: readonly {
-  id: 'property' | 'contact' | 'bond'
+  id: ListingFieldGroupId
   label: string
   keys: readonly ListingFieldKey[]
 }[] = [
@@ -107,12 +109,14 @@ export const LISTING_FIELD_GROUPS: readonly {
     label: 'Listing details',
     keys: LISTING_FIELD_KEYS.filter(
       (k) =>
+        k !== 'description' &&
         !(CONTACT_FIELD_KEYS as readonly string[]).includes(k) &&
         !(BOND_FIELD_KEYS as readonly string[]).includes(k)
     )
   },
   { id: 'contact', label: 'Agent contact', keys: CONTACT_FIELD_KEYS },
-  { id: 'bond', label: 'Bond reference', keys: BOND_FIELD_KEYS }
+  { id: 'bond', label: 'Bond reference', keys: BOND_FIELD_KEYS },
+  { id: 'description', label: 'Description', keys: ['description'] }
 ]
 
 export const LISTING_FIELD_LABELS: Record<ListingFieldKey, string> = {

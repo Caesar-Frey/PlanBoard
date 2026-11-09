@@ -204,6 +204,8 @@ export interface ListingView {
   createdAt: number
   /** Last survey; null for listings surveyed before milestone 4. */
   surveyedAt: number | null
+  /** When the bond figures were read from the listing; null when none were. */
+  bondAsOf: number | null
   /** Photos not removed, in gallery order. */
   photos: ListingPhoto[]
   detailsFile: DetailsFileState

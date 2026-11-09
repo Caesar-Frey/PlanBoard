@@ -48,11 +48,16 @@ describe('validateListingFields', () => {
     )
   })
 
-  it('puts every field in exactly one form section, contacts and bond figures last', () => {
+  it('puts every field in exactly one form section, the description last', () => {
     const all = LISTING_FIELD_GROUPS.flatMap((g) => g.keys)
     expect([...all].sort()).toEqual([...LISTING_FIELD_KEYS].sort())
     expect(new Set(all).size).toBe(all.length)
-    expect(LISTING_FIELD_GROUPS.map((g) => g.id)).toEqual(['property', 'contact', 'bond'])
+    expect(LISTING_FIELD_GROUPS.map((g) => g.id)).toEqual([
+      'property',
+      'contact',
+      'bond',
+      'description'
+    ])
     expect(LISTING_FIELD_GROUPS[1]?.keys).toEqual([
       'agent',
       'agent_phone',

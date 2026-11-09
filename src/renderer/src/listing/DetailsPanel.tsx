@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { DetailsFileMode, ListingView } from '../../../shared/ipc'
 import {
-  LISTING_FIELD_KEYS,
+  LISTING_FIELD_GROUPS,
   LISTING_FIELD_LABELS,
   fieldsToInput,
   isNumberField,
@@ -26,8 +26,21 @@ const WIDE = new Set<ListingFieldKey>(['title', 'description'])
 const HINTS: Partial<Record<ListingFieldKey, string>> = {
   bathrooms: 'A number such as 2 or 2.5',
   bedrooms: 'A whole number',
-  garages: 'A whole number'
+  garages: 'A whole number',
+  bond_term_years: 'A whole number of years',
+  agent_email: 'Separate several with commas',
+  agency_email: 'Separate several with commas'
 }
+
+const INPUT_MODE: Partial<Record<ListingFieldKey, 'tel' | 'email'>> = {
+  agent_phone: 'tel',
+  agency_phone: 'tel',
+  agent_email: 'email',
+  agency_email: 'email'
+}
+
+const formatDate = (ms: number): string =>
+  new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
 type Status =
   | { kind: 'idle' }
@@ -111,6 +124,56 @@ export function DetailsPanel({
     setStatus({ kind: 'idle' })
   }
 
+  const renderField = (key: ListingFieldKey): React.JSX.Element => {
+    const id = `detail-${key}`
+    const error = errors[key]
+    const hint = HINTS[key]
+    const describedBy =
+      [error ? `${id}-error` : null, hint ? `${id}-hint` : null].filter(Boolean).join(' ') ||
+      undefined
+    return (
+      <div key={key} className={`field${WIDE.has(key) ? ' details__wide' : ''}`}>
+        <label className="field__label" htmlFor={id}>
+          {LISTING_FIELD_LABELS[key]}
+        </label>
+        {key === 'description' ? (
+          <textarea
+            id={id}
+            className="field__textarea field__textarea--prose"
+            rows={8}
+            value={form[key]}
+            onChange={(e) => set(key, e.target.value)}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy}
+          />
+        ) : (
+          <input
+            id={id}
+            className="field__input"
+            type="text"
+            inputMode={isNumberField(key) ? 'decimal' : INPUT_MODE[key]}
+            value={form[key]}
+            onChange={(e) => set(key, e.target.value)}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy}
+            autoComplete="off"
+            spellCheck={key === 'title'}
+          />
+        )}
+        {hint && !error && (
+          <span id={`${id}-hint`} className="field__hint">
+            {hint}
+          </span>
+        )}
+        {error && (
+          <span id={`${id}-error`} className="field-error">
+            {error}
+          </span>
+        )}
+      </div>
+    )
+  }
+
   return (
     <form className="panel details" onSubmit={submit} aria-labelledby="details-heading" noValidate>
       <SectionLabel id="details-heading">Listing details</SectionLabel>
@@ -120,57 +183,28 @@ export function DetailsPanel({
           to overwrite it or keep it as it is.
         </p>
       )}
-      <div className="details__grid">
-        {LISTING_FIELD_KEYS.map((key) => {
-          const id = `detail-${key}`
-          const error = errors[key]
-          const hint = HINTS[key]
-          const describedBy =
-            [error ? `${id}-error` : null, hint ? `${id}-hint` : null].filter(Boolean).join(' ') ||
-            undefined
-          return (
-            <div key={key} className={`field${WIDE.has(key) ? ' details__wide' : ''}`}>
-              <label className="field__label" htmlFor={id}>
-                {LISTING_FIELD_LABELS[key]}
-              </label>
-              {key === 'description' ? (
-                <textarea
-                  id={id}
-                  className="field__textarea field__textarea--prose"
-                  rows={8}
-                  value={form[key]}
-                  onChange={(e) => set(key, e.target.value)}
-                  aria-invalid={error ? true : undefined}
-                  aria-describedby={describedBy}
-                />
-              ) : (
-                <input
-                  id={id}
-                  className="field__input"
-                  type="text"
-                  inputMode={isNumberField(key) ? 'decimal' : undefined}
-                  value={form[key]}
-                  onChange={(e) => set(key, e.target.value)}
-                  aria-invalid={error ? true : undefined}
-                  aria-describedby={describedBy}
-                  autoComplete="off"
-                  spellCheck={key === 'title'}
-                />
-              )}
-              {hint && !error && (
-                <span id={`${id}-hint`} className="field__hint">
-                  {hint}
-                </span>
-              )}
-              {error && (
-                <span id={`${id}-error`} className="field-error">
-                  {error}
-                </span>
-              )}
-            </div>
-          )
-        })}
-      </div>
+      {LISTING_FIELD_GROUPS.map((group) => (
+        <fieldset key={group.id} className={`details__group details__group--${group.id}`}>
+          {/* The property group sits under the panel heading; the description has its label. */}
+          {group.id !== 'property' && group.id !== 'description' && (
+            <legend className="details__legend">— {group.label} —</legend>
+          )}
+          {group.id === 'contact' && (
+            <p className="panel__help details__group-help">
+              Only what the listing shows. {view.siteName} hides the agent’s number behind a CAPTCHA
+              check, so PlanBoard doesn’t fetch it; type it in if you have it.
+            </p>
+          )}
+          {group.id === 'bond' && (
+            <p className="panel__help details__group-help">
+              {view.bondAsOf !== null
+                ? `${view.siteName}’s own bond calculator, with its default rate and term, as on ${formatDate(view.bondAsOf)}. A reference, not a quote.`
+                : `${view.siteName}’s own bond calculator figures, with its default rate and term. Survey again to fill them in. A reference, not a quote.`}
+            </p>
+          )}
+          <div className="details__grid">{group.keys.map(renderField)}</div>
+        </fieldset>
+      ))}
       <div className="actions details__actions">
         <button
           type="submit"

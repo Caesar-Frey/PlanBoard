@@ -26,6 +26,7 @@ export async function loadListingView(
     photosExpected: row.photo_count_expected,
     createdAt: row.created_at,
     surveyedAt: row.surveyed_at ?? null,
+    bondAsOf: row.bond_as_of ?? null,
     photos: listListingPhotos(db, id).map((p) => ({
       id: p.id,
       fileName: p.file_name,
