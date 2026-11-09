@@ -45,7 +45,11 @@ export function LibraryRail({
   const people: { id: PersonFilter; label: React.ReactNode; disabled: boolean }[] = [
     { id: 'everyone', label: 'Everyone', disabled: false },
     { id: 'me', label: <PersonLabel person={me} fallback="Me" />, disabled: !me },
-    { id: 'partner', label: <PersonLabel person={partner} fallback="Partner" />, disabled: !partner },
+    {
+      id: 'partner',
+      label: <PersonLabel person={partner} fallback="Partner" />,
+      disabled: !partner
+    },
     { id: 'both', label: 'Both agree', disabled: !me || !partner }
   ]
 

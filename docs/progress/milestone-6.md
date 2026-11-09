@@ -7,7 +7,7 @@ Resumable checklist. On resume: read this file and `git log`, continue at the fi
 - [x] (a) Pure filter / coincidence / search logic (`shared/inspiration.ts`) + db snapshot query (`main/db/inspiration.ts`), TDD — 46 new tests (filters incl. Both agree, coincidence in houses with tie-breaks, search, removed photos left out). 391 green.
 - [x] (b) IPC channel + typed preload (`getInspiration`) — `IPC.getInspiration`, handler in `main/ipc.ts` returns `Result<InspirationSnapshot>`; no request body to check.
 - [x] (c) Library screen layout + rail (scope, rooms, marked as, person) + grid of cards — `inspiration/LibraryView.tsx`, `LibraryRail.tsx`, `LibraryGrid.tsx`; replaces the Placeholder. Checked in the built app (scratch profile): Kitchen → Island 2 photos; + Must-have + Both agree → 1 (Franschhoek); House scope groups by house; Detail hides rooms.
-- [ ] (d) "Where they coincide" banner + search
+- [x] (d) "Where they coincide" banner + search — `inspiration/CoincideBanner.tsx`, search pill (Cmd+F focuses it). In the app: Kitchen → "Island appears in 2 of 3 houses, most often paired with kitchen island (1) and open shelving (1)."; "farm table" finds Thandi's note; "zzz" → empty state + Clear filters.
 - [ ] (e) Detail panel (large photo, tagging panel reuse, "Same feature in", listing links)
 - [ ] (f) Verification in the built app + CLAUDE.md "Where things live" + README Library row and screenshot
 
@@ -27,4 +27,8 @@ Resumable checklist. On resume: read this file and `git log`, continue at the fi
 - Grid shows 60 cards at a time with "Show more".
 - Search sits at the top of the library's main column (the header already holds "Tagging as").
 
+- With no feature chosen, the banner describes the most shared feature in view ("Most shared feature") with a "Show <tag>" button; with one chosen it reads "Where they coincide".
+
 ## Notes
+
+- `.gitignore` ignores every folder called `library/` (to protect the user's library), so the renderer folder is `src/renderer/src/inspiration/`, not `library/`.

@@ -1871,13 +1871,15 @@ code {
 /* ---------- Inspiration library (milestone 6) ---------- */
 
 .main--flush {
+  display: flex;
+  flex-direction: column;
   padding: 0;
 }
 
 .library {
+  flex: 1;
   display: grid;
   grid-template-columns: 250px minmax(0, 1fr) 360px;
-  min-height: 100%;
 }
 
 /* Left rail */
@@ -2183,4 +2185,78 @@ code {
   .library {
     grid-template-columns: 220px minmax(0, 1fr);
   }
+}
+
+/* Search and "Where they coincide" */
+
+.lib-search {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(100%, 440px);
+  min-height: var(--touch);
+  padding: 0 18px;
+  border: 1px solid var(--brass-text);
+  border-radius: var(--pill);
+  background: var(--card);
+}
+
+.lib-search:focus-within {
+  outline: 2px solid var(--bottle-green);
+  outline-offset: 2px;
+}
+
+.lib-search__label {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brass-text);
+}
+
+.lib-search__input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  border: none;
+  background: transparent;
+  outline: none;
+}
+
+.lib-search__input::placeholder {
+  color: var(--ink-muted);
+}
+
+.coincide {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 20px;
+  border: 1px solid var(--brass-dark);
+  outline: 1px solid var(--brass-dark);
+  outline-offset: 3px;
+  background: var(--card);
+}
+
+.coincide__body {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.coincide__figure {
+  font-family: var(--font-display);
+  font-size: 30px;
+  color: var(--bottle-green);
+  white-space: nowrap;
+}
+
+.coincide__text {
+  flex: 1 1 280px;
+  margin: 0;
+}
+
+.coincide__action {
+  min-height: var(--touch-small);
 }

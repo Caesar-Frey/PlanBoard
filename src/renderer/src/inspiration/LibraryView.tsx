@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   AppState,
   InspirationSnapshot,
@@ -9,6 +9,7 @@ import type {
 import {
   DEFAULT_FILTER,
   NO_ROOM,
+  coincidence,
   filterPhotos,
   groupByHouse,
   partnerOf,
@@ -20,6 +21,7 @@ import {
 } from '../../../shared/inspiration'
 import type { ViewId } from '../components/Header'
 import { Divider } from '../components/Ornament'
+import { CoincideBanner } from './CoincideBanner'
 import { LibraryGrid } from './LibraryGrid'
 import { LibraryRail, roomLabel } from './LibraryRail'
 
@@ -89,6 +91,21 @@ export function LibraryView({ state, onNavigate }: LibraryViewProps): React.JSX.
   const rooms = useMemo(() => roomCounts(snap, filter, viewers), [snap, filter, viewers])
   const features = useMemo(() => tagCounts(snap, filter, viewers), [snap, filter, viewers])
   const groups = useMemo(() => groupByHouse(snap, photos), [snap, photos])
+  const coincide = useMemo(() => coincidence(snap, filter, viewers), [snap, filter, viewers])
+
+  // Cmd+F jumps to the library search.
+  const searchRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.metaKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        searchRef.current?.focus()
+        searchRef.current?.select()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const change = useCallback((patch: Partial<InspirationFilter>) => {
     setFilter((f) => ({ ...f, ...patch }))
@@ -180,6 +197,27 @@ export function LibraryView({ state, onNavigate }: LibraryViewProps): React.JSX.
       <LibraryRail filter={filter} onChange={change} rooms={rooms} me={me} partner={partner} />
 
       <section className="lib-main" aria-labelledby="lib-title">
+        <div className="lib-search" role="search">
+          <label className="lib-search__label" htmlFor="lib-search">
+            Search
+          </label>
+          <input
+            ref={searchRef}
+            id="lib-search"
+            className="lib-search__input"
+            type="search"
+            placeholder="notes, tags, suburbs"
+            value={filter.query}
+            onChange={(e) => change({ query: e.target.value })}
+            aria-describedby="lib-search-help"
+            maxLength={200}
+          />
+          <span id="lib-search-help" className="visually-hidden">
+            Every word must appear in a photo’s notes, tags or room, or its house’s suburb. Esc
+            clears it.
+          </span>
+        </div>
+
         <div className="page-title">
           <span className="page-title__kicker" aria-live="polite">
             {plural(photos.length, 'photograph')} · {plural(groups.length, 'house')}
@@ -223,6 +261,14 @@ export function LibraryView({ state, onNavigate }: LibraryViewProps): React.JSX.
               )}
             </div>
           </div>
+        )}
+
+        {coincide && (
+          <CoincideBanner
+            coincidence={coincide}
+            chosen={filter.tagId === coincide.tagId}
+            onChoose={(tagId) => change({ tagId })}
+          />
         )}
 
         {photos.length === 0 ? (

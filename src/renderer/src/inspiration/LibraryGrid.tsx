@@ -156,12 +156,7 @@ interface HouseCardProps {
 
 const TOP_TAGS = 4
 
-function HouseCard({
-  group,
-  personOrder,
-  selected,
-  onSelect
-}: HouseCardProps): React.JSX.Element {
+function HouseCard({ group, personOrder, selected, onSelect }: HouseCardProps): React.JSX.Element {
   const { house, photos } = group
   const cover = photos[0]!
   const counts = new Map<string, number>()
