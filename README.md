@@ -9,7 +9,7 @@ Save property listings, keep every photo, and tag what you love: room by room, f
 ![React](https://img.shields.io/badge/React-19-1f3b33?logo=react&logoColor=e3cf9f)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-1f3b33?logo=typescript&logoColor=e3cf9f)
 ![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-1f3b33?logo=sqlite&logoColor=e3cf9f)
-![Tests](https://img.shields.io/badge/tests-345_passing-c9a45c)
+![Tests](https://img.shields.io/badge/tests-391_passing-c9a45c)
 ![Platform](https://img.shields.io/badge/platform-macOS-c9a45c?logo=apple&logoColor=1f3b33)
 ![License](https://img.shields.io/badge/license-MIT-c9a45c)
 
@@ -37,7 +37,7 @@ It started as a small Python download script ([`reference/images_downloader.py`]
 | User interface | React 19, TypeScript 6 in strict mode, hand-written CSS with design tokens, Marcellus and Jost fonts bundled via Fontsource |
 | Data | SQLite through better-sqlite3 13, step-up migrations on `PRAGMA user_version` |
 | Scraping and downloads | A hidden, Node-free Electron window running page scripts; Chromium's network stack (`net.fetch`); node-html-parser |
-| Testing and quality | Vitest 5 (345 tests), ESLint 10 with typescript-eslint and the React hooks rules, Prettier |
+| Testing and quality | Vitest 5 (391 tests), ESLint 10 with typescript-eslint and the React hooks rules, Prettier |
 | AI-assisted workflow | Claude Code, guided by a written spec, project rules and per-milestone progress logs |
 
 ## Skills this project shows
@@ -57,11 +57,20 @@ It started as a small Python download script ([`reference/images_downloader.py`]
 <tr>
 <td width="50%" valign="top">
 
+**The inspiration library**<br>
+Every tagged photo in one place. Browse by house, room or feature; filter by mark and by person, including **Both agree**; and search notes, tags and suburbs. A banner shows where features coincide (“Island appears in 2 of 3 houses, most often paired with…”), and the side panel lists the other houses with the same feature.
+
+</td>
+<td width="50%"><img src="docs/screenshots/library.jpg" alt="Inspiration library filtered to Island in the kitchen: room and person filters on the left, a 'Where they coincide' banner, two photo cards, and a green detail panel with the selected Franschhoek kitchen and 'Same feature in Constantia'."></td>
+</tr>
+<tr>
+<td valign="top">
+
 **Capture a listing**<br>
 Paste a Property24 or Private Property link. The site and listing are recognised straight away, then a hidden browser window reads the gallery and every photo is downloaded with polite pacing, retries and a progress bar named after building stages (*Survey → Foundation → Framing → Handover*).
 
 </td>
-<td width="50%"><img src="docs/screenshots/capture.jpg" alt="Capture screen with a pasted Property24 link recognised as listing 999000404."></td>
+<td><img src="docs/screenshots/capture.jpg" alt="Capture screen with a pasted Property24 link recognised as listing 999000404."></td>
 </tr>
 <tr>
 <td valign="top">
@@ -179,8 +188,8 @@ I'm an AI-assisted builder: I set the direction, make the product and design dec
 | 3. Capture flow with progress stages | ✅ |
 | 4. Listing view: preview, remove to Trash, edit details | ✅ |
 | 5. Tagging: rooms, feature tags, marks, notes | ✅ |
-| 6. Inspiration library: filters, search, “where features coincide” insights | ⏳ next |
-| 7. Packaged `.dmg` | ⏳ |
+| 6. Inspiration library: filters, search, “where features coincide” insights | ✅ |
+| 7. Packaged `.dmg` | ⏳ next |
 
 ## Run it locally
 
@@ -194,7 +203,7 @@ npm run dev     # opens the app with hot reload
 ```
 
 ```bash
-npm test            # 345 unit tests
+npm test            # 391 unit tests
 npm run typecheck   # TypeScript, main and renderer
 npm run lint        # ESLint
 npm run build       # typecheck, then compile into out/
@@ -207,11 +216,12 @@ src/
   main/        Electron main: window, IPC, settings, library, capture pipeline
     scrapers/  site-specific URL patterns, selectors and parsers (one file per site)
     capture/   download, retry, details file, resumable run
-    db/        schema, migrations, listings, notes, tagging queries
+    db/        schema, migrations, listings, notes, tagging and library queries
     tagging/   request checks and the "Tagging as" rule
   preload/     the typed bridge: the only API the UI can reach
-  renderer/    React UI: capture, listing view, tagging, settings
-  shared/      types and pure logic used by both sides (IPC types, tag matching, rooms)
+  renderer/    React UI: capture, inspiration library, listing view, tagging, settings
+  shared/      types and pure logic used by both sides (IPC types, tag matching, rooms,
+               library filters and coincidence counts)
 test/fixtures/ trimmed, redacted listing pages for scraper tests
 ```
 

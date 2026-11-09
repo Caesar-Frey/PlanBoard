@@ -9,7 +9,7 @@ Resumable checklist. On resume: read this file and `git log`, continue at the fi
 - [x] (c) Library screen layout + rail (scope, rooms, marked as, person) + grid of cards — `inspiration/LibraryView.tsx`, `LibraryRail.tsx`, `LibraryGrid.tsx`; replaces the Placeholder. Checked in the built app (scratch profile): Kitchen → Island 2 photos; + Must-have + Both agree → 1 (Franschhoek); House scope groups by house; Detail hides rooms.
 - [x] (d) "Where they coincide" banner + search — `inspiration/CoincideBanner.tsx`, search pill (Cmd+F focuses it). In the app: Kitchen → "Island appears in 2 of 3 houses, most often paired with kitchen island (1) and open shelving (1)."; "farm table" finds Thandi's note; "zzz" → empty state + Clear filters.
 - [x] (e) Detail panel (large photo, tagging panel reuse, "Same feature in", listing links) — `inspiration/LibraryDetail.tsx` reuses `TaggingPanel`. In the app: Franschhoek kitchen → Same feature in Constantia (Island), clicking it selects that photo; tag "Stacker doors", mark Nice and a note made in the panel show on the card and in the db; a photo marked removed in the db drops out (15 → 14); Open listing goes to the listing view.
-- [ ] (f) Verification in the built app + CLAUDE.md "Where things live" + README Library row and screenshot
+- [x] (f) Verification in the built app + CLAUDE.md "Where things live" + README Library row and screenshot — 391 tests, typecheck, lint, prettier green; greps clean (no console.log, no raw colours outside tokens.css, hooks above early returns). Built app on a scratch profile + scratch library: filters, banner, search, detail panel edits, removed photo excluded, Open listing, 1100px drawer. README: Library row + `docs/screenshots/library.jpg` (fictional demo library), roadmap 6 ✅, test counts.
 
 ## Decisions
 
@@ -31,5 +31,8 @@ Resumable checklist. On resume: read this file and `git log`, continue at the fi
 - Detail panel order: photo, house + Open listing (in-app listing view) / Original listing ↗ (browser), "Same feature in" (other houses sharing any of this photo's tags, most shared first; click selects that house's photo), then the milestone-5 tagging panel for edits. Below 1180px wide it becomes a right-hand drawer.
 
 ## Notes
+
+- Not verified: "Original listing ↗" (it would open a live site in the browser; same code path as the listing view's existing button). Keyboard Tab order was not walked end to end; focus styles are defined for every new control.
+- Possible follow-ups: Esc to close the narrow-window drawer; arrow keys to step through photos in the detail panel; the tagging panel's 17 room chips are tall in the side panel (milestone-5 follow-up: a more compact room picker).
 
 - `.gitignore` ignores every folder called `library/` (to protect the user's library), so the renderer folder is `src/renderer/src/inspiration/`, not `library/`.
