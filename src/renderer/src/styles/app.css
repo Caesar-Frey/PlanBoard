@@ -1734,6 +1734,74 @@ code {
   font-size: 14px;
 }
 
+/* Settings → Feature tags */
+
+.tag-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tag-manager__dupes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px dashed var(--brass-dark);
+}
+
+.tag-manager__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tag-manager__row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-height: var(--touch);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.tag-manager__row:last-child {
+  border-bottom: none;
+}
+
+.tag-manager__name {
+  flex: 1;
+  min-width: 140px;
+}
+
+.tag-manager__count {
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.tag-manager__action {
+  min-height: var(--touch-small);
+  padding: 0 14px;
+}
+
+.tag-manager__rename {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-manager__rename .field__input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.tag-manager__filter {
+  max-width: 320px;
+}
+
 /* Details form */
 
 .details__grid {

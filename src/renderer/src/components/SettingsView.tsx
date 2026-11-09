@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { AppState, Person, Result } from '../../../shared/ipc'
+import { TagManager } from '../tagging/TagManager'
 import { PageTitle, SectionLabel } from './Ornament'
 
 interface SettingsViewProps {
@@ -66,6 +67,14 @@ export function SettingsView({ state, apply }: SettingsViewProps): React.JSX.Ele
             />
           ))}
         </div>
+      </div>
+
+      <div className="panel" aria-labelledby="tags-heading">
+        <SectionLabel id="tags-heading">Feature tags</SectionLabel>
+        <p className="panel__help">
+          Rename a tag, or merge two that mean the same thing. Merging keeps who tagged each photo.
+        </p>
+        <TagManager libraryRoot={state.library.root} />
       </div>
     </section>
   )

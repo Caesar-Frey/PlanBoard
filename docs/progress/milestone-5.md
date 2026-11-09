@@ -8,7 +8,7 @@ Resumable checklist. On resume: read this file and `git log`, continue at the fi
 - [x] (b) Tagging service + IPC + preload typed methods — 7 channels (setPhotoRoom, addPhotoTag, removePhotoTag, savePhotoNote, listTags, renameTag, mergeTags); ListingView photos now carry room, tags, notes.
 - [x] (c) Large preview: tagging panel — `tagging/TaggingPanel.tsx`, `tagging/TagInput.tsx` (combobox), `components/useAutosave.ts`. Checked in the scratch app: room, tag create, "kitchen island" → "Island?", Esc closes only the list, → in a field doesn't navigate, marks + notes for both people.
 - [x] (d) Grid: room/tag-count/mark indicators + bulk room ("Set rooms for several" mode, Shift-click ranges, sticky bar with room select). Checked in the scratch app: 5 photos set to Bedroom.
-- [ ] (e) Tag management (rename, merge, possible duplicates) in Settings
+- [x] (e) Tag management in Settings → Feature tags (`tagging/TagManager.tsx`): rename, merge with confirmation, rename-clash → merge offer, "Possible duplicates" from the fuzzy matcher. Checked in the scratch app: rename, Kitchen island → Island merge (db rows moved, old tag gone).
 - [ ] (f) Verification in the built app (scratch profile + scratch library), CLAUDE.md update
 
 ## Decisions
