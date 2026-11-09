@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import { IPC, type CaptureProgress, type PlanBoardApi } from '../shared/ipc'
+import { IPC, type CaptureProgress, type CloseKind, type PlanBoardApi } from '../shared/ipc'
 
 /** The only surface the renderer can reach. Each method maps to one IPC channel. */
 const api: PlanBoardApi = {
@@ -26,7 +26,16 @@ const api: PlanBoardApi = {
   getListing: (id) => ipcRenderer.invoke(IPC.getListing, id),
   trashPhotos: (request) => ipcRenderer.invoke(IPC.trashPhotos, request),
   saveListingDetails: (request) => ipcRenderer.invoke(IPC.saveListingDetails, request),
-  saveListingNote: (request) => ipcRenderer.invoke(IPC.saveListingNote, request)
+  saveListingNote: (request) => ipcRenderer.invoke(IPC.saveListingNote, request),
+  setUnsavedDetails: (dirty) => ipcRenderer.send(IPC.setUnsavedDetails, dirty === true),
+  onCloseRequested: (listener) => {
+    const handler = (_event: IpcRendererEvent, kind: CloseKind): void => listener(kind)
+    ipcRenderer.on(IPC.closeRequested, handler)
+    return () => {
+      ipcRenderer.removeListener(IPC.closeRequested, handler)
+    }
+  },
+  answerClose: (discard) => ipcRenderer.send(IPC.answerClose, discard === true)
 }
 
 contextBridge.exposeInMainWorld('planboard', api)

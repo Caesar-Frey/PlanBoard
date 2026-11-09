@@ -73,7 +73,10 @@ type SaveState =
   | { kind: 'saved' }
   | { kind: 'error'; message: string }
 
-/** Saves on blur and after a second without typing. A pending change is saved on unmount. */
+/**
+ * Saves on blur and after a second without typing. A pending change is saved on unmount and
+ * when the window closes (the app quitting).
+ */
 function NoteEditor({ listingId, person, initial, onSaved }: NoteEditorProps): React.JSX.Element {
   const [text, setText] = useState(initial)
   const [state, setState] = useState<SaveState>({ kind: 'idle' })
@@ -113,9 +116,13 @@ function NoteEditor({ listingId, person, initial, onSaved }: NoteEditorProps): R
   useEffect(() => {
     saveRef.current = save
   }, [save])
+  // Closing the window or quitting doesn't unmount anything, so save on `pagehide` too.
   useEffect(() => {
     live.current = true
+    const flush = (): void => void saveRef.current(latest.current)
+    window.addEventListener('pagehide', flush)
     return () => {
+      window.removeEventListener('pagehide', flush)
       live.current = false
       void saveRef.current(latest.current)
     }

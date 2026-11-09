@@ -254,6 +254,13 @@ export interface SaveNoteRequest {
   text: string
 }
 
+// ---------------------------------------------------------------------------------------------
+// Quit guard
+// ---------------------------------------------------------------------------------------------
+
+/** `quit`: Cmd+Q / PlanBoard → Quit. `close`: the window's close button. */
+export type CloseKind = 'quit' | 'close'
+
 /** IPC channel names. One place, so main and preload can't drift apart. */
 export const IPC = {
   getState: 'planboard:get-state',
@@ -272,7 +279,13 @@ export const IPC = {
   getListing: 'planboard:get-listing',
   trashPhotos: 'planboard:trash-photos',
   saveListingDetails: 'planboard:save-listing-details',
-  saveListingNote: 'planboard:save-listing-note'
+  saveListingNote: 'planboard:save-listing-note',
+  /** renderer → main (send): the listing view has, or no longer has, unsaved detail edits. */
+  setUnsavedDetails: 'planboard:set-unsaved-details',
+  /** main → renderer event carrying a `CloseKind`: ask before closing. */
+  closeRequested: 'planboard:close-requested',
+  /** renderer → main (send): the answer, `true` to discard the edits and close. */
+  answerClose: 'planboard:answer-close'
 } as const
 
 /** The API the preload script exposes on `window.planboard`. */
@@ -300,4 +313,10 @@ export interface PlanBoardApi {
   saveListingDetails(request: SaveDetailsRequest): Promise<Result<SaveDetailsOutcome>>
   /** Saves the current person's "Why we saved this house" note. */
   saveListingNote(request: SaveNoteRequest): Promise<Result<ListingNote>>
+  /** Tells main whether quitting now would lose detail edits. */
+  setUnsavedDetails(dirty: boolean): void
+  /** Main is holding a close or quit for the unsaved details. Returns the unsubscribe function. */
+  onCloseRequested(listener: (kind: CloseKind) => void): () => void
+  /** `true`: discard the edits and go on closing or quitting. `false`: keep editing. */
+  answerClose(discard: boolean): void
 }

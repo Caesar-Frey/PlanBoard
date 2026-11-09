@@ -1,11 +1,49 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, type WebContents } from 'electron'
 import { join } from 'node:path'
+import { IPC } from '../shared/ipc'
 import { runScrapeCli } from './cli'
 import { dumpDirFromArgv, scrapeUrlFromArgv } from './cliArgs'
+import { createCloseGuard, type CloseGuard } from './closeGuard'
 import { registerIpc } from './ipc'
 import { handleMediaProtocol, registerMediaScheme } from './mediaProtocol'
 
 let mainWindow: BrowserWindow | null = null
+
+/** One quit guard per app window, found by the renderer that sends to it. */
+const closeGuards = new Map<WebContents, CloseGuard>()
+
+function attachCloseGuard(win: BrowserWindow): void {
+  const wc = win.webContents
+  const guard = createCloseGuard({
+    ask: (kind) => {
+      console.info(`[planboard] unsaved listing details: asking before ${kind}`)
+      if (!win.isDestroyed()) wc.send(IPC.closeRequested, kind)
+    },
+    quit: () => app.quit(),
+    closeWindow: () => {
+      if (!win.isDestroyed()) win.close()
+    },
+    rendererAlive: () => !win.isDestroyed() && !wc.isCrashed()
+  })
+  closeGuards.set(wc, guard)
+  win.on('close', (event) => guard.onClose(event))
+  win.on('closed', () => closeGuards.delete(wc))
+  // A reload or a crashed renderer has no edits any more.
+  wc.on('did-navigate', () => guard.setDirty(false))
+  wc.on('render-process-gone', () => guard.setDirty(false))
+}
+
+function registerCloseGuardIpc(): void {
+  ipcMain.on(IPC.setUnsavedDetails, (event, dirty: unknown) => {
+    closeGuards.get(event.sender)?.setDirty(dirty === true)
+  })
+  ipcMain.on(IPC.answerClose, (event, discard: unknown) => {
+    closeGuards.get(event.sender)?.answer(discard === true)
+  })
+  app.on('before-quit', () => {
+    for (const guard of closeGuards.values()) guard.beforeQuit()
+  })
+}
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -26,6 +64,7 @@ function createWindow(): BrowserWindow {
   })
 
   win.once('ready-to-show', () => win.show())
+  attachCloseGuard(win)
 
   // Never let the renderer open new windows or navigate away from the app.
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -59,6 +98,7 @@ function startApp(): void {
     .whenReady()
     .then(() => {
       const ctx = registerIpc(() => mainWindow)
+      registerCloseGuardIpc()
       handleMediaProtocol(() => ctx.library.root)
       console.info(`[planboard] library: ${ctx.library.root}`)
       console.info(`[planboard] database opened: ${ctx.library.dbPath}`)

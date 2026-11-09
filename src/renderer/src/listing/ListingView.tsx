@@ -54,7 +54,10 @@ export function ListingView({
 
   useEffect(() => {
     registerGuard(() => dirty.current)
-    return () => registerGuard(null)
+    return () => {
+      registerGuard(null)
+      window.planboard.setUnsavedDetails(false)
+    }
   }, [registerGuard])
 
   const applyView = useCallback((next: ListingData) => {
@@ -94,7 +97,9 @@ export function ListingView({
 
   const openPreview = useCallback((index: number) => setPreview(index), [])
 
-  const onDirtyChange = useCallback((d: boolean) => {
+  // Main's quit guard needs to know too (Cmd+Q and the window's close button).
+  const setDirty = useCallback((d: boolean) => {
+    if (dirty.current !== d) window.planboard.setUnsavedDetails(d)
     dirty.current = d
   }, [])
 
@@ -104,10 +109,13 @@ export function ListingView({
     )
   }, [])
 
-  const onDetailsSaved = useCallback((next: ListingData) => {
-    dirty.current = false
-    setData(next)
-  }, [])
+  const onDetailsSaved = useCallback(
+    (next: ListingData) => {
+      setDirty(false)
+      setData(next)
+    },
+    [setDirty]
+  )
 
   const act = async (
     fn: (id: number) => Promise<{ ok: boolean; error?: string }>
@@ -296,12 +304,7 @@ export function ListingView({
         </div>
       )}
 
-      <DetailsPanel
-        key={formKey}
-        view={data}
-        onDirtyChange={onDirtyChange}
-        onSaved={onDetailsSaved}
-      />
+      <DetailsPanel key={formKey} view={data} onDirtyChange={setDirty} onSaved={onDetailsSaved} />
 
       {preview !== null && data.photos[preview] && (
         <PhotoPreview
