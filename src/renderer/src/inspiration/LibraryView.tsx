@@ -22,6 +22,7 @@ import {
 import type { ViewId } from '../components/Header'
 import { Divider } from '../components/Ornament'
 import { CoincideBanner } from './CoincideBanner'
+import { LibraryDetail, LibraryDetailEmpty } from './LibraryDetail'
 import { LibraryGrid } from './LibraryGrid'
 import { LibraryRail, roomLabel } from './LibraryRail'
 
@@ -38,10 +39,14 @@ const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' 
 const CHIP_LIMIT = 14
 
 /** The inspiration library (brief 4.4): filter, search and compare every tagged photo. */
-export function LibraryView({ state, onNavigate }: LibraryViewProps): React.JSX.Element {
+export function LibraryView({
+  state,
+  onNavigate,
+  onOpenListing
+}: LibraryViewProps): React.JSX.Element {
   const [snapshot, setSnapshot] = useState<InspirationSnapshot | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [, setTags] = useState<TagSummary[]>([])
+  const [tags, setTags] = useState<TagSummary[]>([])
   const [filter, setFilter] = useState<InspirationFilter>(DEFAULT_FILTER)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [allChips, setAllChips] = useState(false)
@@ -91,6 +96,10 @@ export function LibraryView({ state, onNavigate }: LibraryViewProps): React.JSX.
   const rooms = useMemo(() => roomCounts(snap, filter, viewers), [snap, filter, viewers])
   const features = useMemo(() => tagCounts(snap, filter, viewers), [snap, filter, viewers])
   const groups = useMemo(() => groupByHouse(snap, photos), [snap, photos])
+  const selected = useMemo(
+    () => (selectedId === null ? null : (snap.photos.find((p) => p.id === selectedId) ?? null)),
+    [snap, selectedId]
+  )
   const coincide = useMemo(() => coincidence(snap, filter, viewers), [snap, filter, viewers])
 
   // Cmd+F jumps to the library search.
@@ -144,8 +153,6 @@ export function LibraryView({ state, onNavigate }: LibraryViewProps): React.JSX.
         : s
     )
   }, [])
-  void applyTagging
-  void applyNote
 
   if (error) {
     return (
@@ -298,6 +305,28 @@ export function LibraryView({ state, onNavigate }: LibraryViewProps): React.JSX.
           />
         )}
       </section>
+
+      {selected ? (
+        <LibraryDetail
+          // A fresh panel per photo, so half-typed notes or tags never carry over.
+          key={selected.id}
+          snapshot={snap}
+          photo={selected}
+          house={houses.get(selected.listingId)}
+          houses={houses}
+          people={people}
+          currentPersonId={meId}
+          tags={tags}
+          onSelect={setSelectedId}
+          onClose={() => setSelectedId(null)}
+          onOpenListing={onOpenListing}
+          onTagging={applyTagging}
+          onTagsChanged={loadTags}
+          onNoteSaved={applyNote}
+        />
+      ) : (
+        <LibraryDetailEmpty />
+      )}
     </div>
   )
 }

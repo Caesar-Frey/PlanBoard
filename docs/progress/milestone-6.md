@@ -8,7 +8,7 @@ Resumable checklist. On resume: read this file and `git log`, continue at the fi
 - [x] (b) IPC channel + typed preload (`getInspiration`) — `IPC.getInspiration`, handler in `main/ipc.ts` returns `Result<InspirationSnapshot>`; no request body to check.
 - [x] (c) Library screen layout + rail (scope, rooms, marked as, person) + grid of cards — `inspiration/LibraryView.tsx`, `LibraryRail.tsx`, `LibraryGrid.tsx`; replaces the Placeholder. Checked in the built app (scratch profile): Kitchen → Island 2 photos; + Must-have + Both agree → 1 (Franschhoek); House scope groups by house; Detail hides rooms.
 - [x] (d) "Where they coincide" banner + search — `inspiration/CoincideBanner.tsx`, search pill (Cmd+F focuses it). In the app: Kitchen → "Island appears in 2 of 3 houses, most often paired with kitchen island (1) and open shelving (1)."; "farm table" finds Thandi's note; "zzz" → empty state + Clear filters.
-- [ ] (e) Detail panel (large photo, tagging panel reuse, "Same feature in", listing links)
+- [x] (e) Detail panel (large photo, tagging panel reuse, "Same feature in", listing links) — `inspiration/LibraryDetail.tsx` reuses `TaggingPanel`. In the app: Franschhoek kitchen → Same feature in Constantia (Island), clicking it selects that photo; tag "Stacker doors", mark Nice and a note made in the panel show on the card and in the db; a photo marked removed in the db drops out (15 → 14); Open listing goes to the listing view.
 - [ ] (f) Verification in the built app + CLAUDE.md "Where things live" + README Library row and screenshot
 
 ## Decisions
@@ -28,6 +28,7 @@ Resumable checklist. On resume: read this file and `git log`, continue at the fi
 - Search sits at the top of the library's main column (the header already holds "Tagging as").
 
 - With no feature chosen, the banner describes the most shared feature in view ("Most shared feature") with a "Show <tag>" button; with one chosen it reads "Where they coincide".
+- Detail panel order: photo, house + Open listing (in-app listing view) / Original listing ↗ (browser), "Same feature in" (other houses sharing any of this photo's tags, most shared first; click selects that house's photo), then the milestone-5 tagging panel for edits. Below 1180px wide it becomes a right-hand drawer.
 
 ## Notes
 
