@@ -4,16 +4,10 @@ import { CaptureView } from './capture/CaptureView'
 import { useCapture } from './capture/useCapture'
 import { Header, type ViewId } from './components/Header'
 import { Modal } from './components/Modal'
-import { Placeholder } from './components/Placeholder'
 import { RecentView } from './components/RecentView'
 import { SettingsView } from './components/SettingsView'
+import { LibraryView } from './inspiration/LibraryView'
 import { ListingView } from './listing/ListingView'
-
-const LIBRARY_PLACEHOLDER = {
-  title: 'Library',
-  milestone: 6,
-  blurb: 'Browse by house, room or detail, and see where your favourite features coincide.'
-}
 
 export function App(): React.JSX.Element {
   const [view, setView] = useState<ViewId>('capture')
@@ -149,7 +143,14 @@ export function App(): React.JSX.Element {
       />
     )
   } else {
-    content = <Placeholder {...LIBRARY_PLACEHOLDER} />
+    content = (
+      <LibraryView
+        key={state.library.root}
+        state={state}
+        onNavigate={navigate}
+        onOpenListing={openListing}
+      />
+    )
   }
 
   return (
@@ -161,7 +162,7 @@ export function App(): React.JSX.Element {
         currentPersonId={state?.settings.currentPersonId ?? null}
         onSwitchPerson={switchPerson}
       />
-      <main className="main">
+      <main className={view === 'library' && state ? 'main main--flush' : 'main'}>
         {switchError && (
           <p className="notice notice--error" role="alert">
             {switchError}

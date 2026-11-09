@@ -6,7 +6,7 @@ Resumable checklist. On resume: read this file and `git log`, continue at the fi
 
 - [x] (a) Pure filter / coincidence / search logic (`shared/inspiration.ts`) + db snapshot query (`main/db/inspiration.ts`), TDD — 46 new tests (filters incl. Both agree, coincidence in houses with tie-breaks, search, removed photos left out). 391 green.
 - [x] (b) IPC channel + typed preload (`getInspiration`) — `IPC.getInspiration`, handler in `main/ipc.ts` returns `Result<InspirationSnapshot>`; no request body to check.
-- [ ] (c) Library screen layout + rail (scope, rooms, marked as, person) + grid of cards
+- [x] (c) Library screen layout + rail (scope, rooms, marked as, person) + grid of cards — `inspiration/LibraryView.tsx`, `LibraryRail.tsx`, `LibraryGrid.tsx`; replaces the Placeholder. Checked in the built app (scratch profile): Kitchen → Island 2 photos; + Must-have + Both agree → 1 (Franschhoek); House scope groups by house; Detail hides rooms.
 - [ ] (d) "Where they coincide" banner + search
 - [ ] (e) Detail panel (large photo, tagging panel reuse, "Same feature in", listing links)
 - [ ] (f) Verification in the built app + CLAUDE.md "Where things live" + README Library row and screenshot
@@ -21,5 +21,10 @@ Resumable checklist. On resume: read this file and `git log`, continue at the fi
 - Coincidence: focal tag = the chosen tag, else the tag in the most houses in view (ties: more photos, then A–Z). Pairs counted in houses that have a photo carrying both tags; ranked houses, then photos, then A–Z. Denominator = houses that still have photos.
 - Search: every word must appear in the photo's notes (both people), tags, room, or its house's suburb or city; ignores case and accents; "kitchens"/"benches" find "kitchen"/"bench". The house's "Why we saved" note is not searched (it would match every photo of that house).
 - House names: suburb, else title, else `P24-123`; two houses with the same name get ` · P24-123` added.
+
+- Feature chips sit under the title in the main column (as in the mockup) rather than in the rail; the rail keeps scope, rooms, marked as and person. More than 14 features fold behind "All features (N)".
+- Person filter buttons show the two names (with swatches) instead of the words Me/Partner; screen readers hear "(me)"/"(partner)".
+- Grid shows 60 cards at a time with "Show more".
+- Search sits at the top of the library's main column (the header already holds "Tagging as").
 
 ## Notes
