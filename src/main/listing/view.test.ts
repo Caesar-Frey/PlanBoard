@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { openDatabase, type DB } from '../db'
 import { recordPhotos, upsertListing } from '../db/listings'
 import { saveListingNote } from '../db/notes'
+import { addPhotoTag, findOrCreateTag, savePhotoNote, setRoom } from '../db/tagging'
 import { EMPTY_DETAILS } from '../scrapers/types'
 import { loadListingView } from './view'
 
@@ -40,6 +41,15 @@ describe('loadListingView', () => {
     ])
     db.prepare("UPDATE photos SET deleted_at = 1 WHERE file_name = 'image_1.jpg'").run()
     saveListingNote(db, id, 2, 'Light', 99)
+    const kept = (
+      db.prepare("SELECT id FROM photos WHERE file_name = 'image_2.jpg'").get() as {
+        id: number
+      }
+    ).id
+    setRoom(db, [kept], 'Kitchen')
+    const { tag } = findOrCreateTag(db, 'Island', 1, 5)
+    addPhotoTag(db, kept, tag.id, 1, 5)
+    savePhotoNote(db, kept, 2, { mark: 'must' }, 6)
     writeFileSync(join(root, 'listings', 'Hill Crest_P24-1', 'Property_Details.txt'), 'mine')
 
     const view = await loadListingView(db, root, id)
@@ -60,7 +70,9 @@ describe('loadListingView', () => {
         id: expect.any(Number),
         fileName: 'image_2.jpg',
         url: 'planboard-media://library/listings/Hill%20Crest_P24-1/image_2.jpg',
-        room: null
+        room: 'Kitchen',
+        tags: [{ tagId: tag.id, name: 'Island', personIds: [1] }],
+        notes: [{ personId: 2, likes: null, why: null, mark: 'must', updatedAt: 6 }]
       }
     ])
   })

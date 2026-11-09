@@ -41,6 +41,7 @@ import { validatePersonInput } from './people'
 import { detectListing } from './scrapers/detect'
 import { scrapeListing, scraperUserAgent } from './scrapers/driver'
 import { SITE_NAME } from './scrapers/types'
+import { taggedPercent } from '../shared/tagging'
 import { loadSettings, saveSettings } from './settings'
 
 /** Holds the open library and settings for the lifetime of the app. */
@@ -139,8 +140,7 @@ function toRecent(row: ReturnType<typeof listRecentListings>[number]): RecentLis
     photosOnDisk: row.photos_on_disk,
     photosExpected: row.photo_count_expected,
     taggedPhotos: row.tagged_photos,
-    taggedPercent:
-      row.photos_on_disk > 0 ? Math.floor((row.tagged_photos * 100) / row.photos_on_disk) : 0,
+    taggedPercent: taggedPercent(row.tagged_photos, row.photos_on_disk),
     createdAt: row.created_at,
     thumbnailUrl: row.first_photo ? mediaUrl(`${row.folder_path}/${row.first_photo}`) : null
   }

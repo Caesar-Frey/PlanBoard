@@ -173,12 +173,122 @@ export interface RecentListing {
 // Listing view (milestone 4)
 // ---------------------------------------------------------------------------------------------
 
-export interface ListingPhoto {
+export interface ListingPhoto extends PhotoTaggingFields {
   id: number
   fileName: string
   /** `planboard-media://` URL. */
   url: string
-  room: string | null
+}
+
+// ---------------------------------------------------------------------------------------------
+// Tagging (milestone 5)
+// ---------------------------------------------------------------------------------------------
+
+/** One of `ROOMS` in `shared/tagging.ts`. Kept as a string here so this file stays type-only. */
+export type RoomName = string
+
+export type Mark = 'must' | 'nice' | 'maybe'
+
+/** A feature tag on one photo, with who added it (each person's tag is recorded separately). */
+export interface PhotoTag {
+  tagId: number
+  name: string
+  /** People who put this tag on the photo, by id, ascending. */
+  personIds: number[]
+}
+
+/** One person's mark and notes on one photo. */
+export interface PhotoNote {
+  personId: number
+  likes: string | null
+  why: string | null
+  mark: Mark | null
+  updatedAt: number
+}
+
+export interface PhotoTaggingFields {
+  /** Shared by both people. Null: no room yet. */
+  room: RoomName | null
+  /** By name, A–Z. */
+  tags: PhotoTag[]
+  /** At most one per person. */
+  notes: PhotoNote[]
+}
+
+/** The tagging state of one photo, returned after every change. */
+export interface PhotoTagging extends PhotoTaggingFields {
+  photoId: number
+}
+
+export interface TagSummary {
+  id: number
+  name: string
+  /** Photos (not removed) carrying this tag, by anyone. */
+  photoCount: number
+  createdAt: number
+}
+
+export interface SetRoomRequest {
+  photoIds: number[]
+  /** Null clears the room. */
+  room: RoomName | null
+}
+
+export interface AddPhotoTagRequest {
+  photoId: number
+  /** Must be the person currently tagging. */
+  personId: number
+  /** Free text. An existing tag with the same name (any case, plural or word order) is reused. */
+  name: string
+}
+
+export interface AddPhotoTagOutcome {
+  photo: PhotoTagging
+  tag: TagSummary
+  /** A new tag was made (false: an existing one was reused). */
+  created: boolean
+}
+
+export interface RemovePhotoTagRequest {
+  photoId: number
+  /** Must be the person currently tagging; only their own tag is removed. */
+  personId: number
+  tagId: number
+}
+
+/** Fields left out are kept as they are. Blank text is stored as null. */
+export interface SavePhotoNoteRequest {
+  photoId: number
+  /** Must be the person currently tagging. */
+  personId: number
+  likes?: string
+  why?: string
+  /** Null clears the mark. */
+  mark?: Mark | null
+}
+
+export interface RenameTagRequest {
+  tagId: number
+  name: string
+}
+
+export type RenameTagOutcome =
+  | { status: 'renamed'; tag: TagSummary }
+  /** Another tag already has this name: offer to merge into it instead. */
+  | { status: 'exists'; existing: TagSummary }
+
+export interface MergeTagsRequest {
+  /** Removed after the merge. */
+  fromTagId: number
+  intoTagId: number
+}
+
+export interface MergeTagsOutcome {
+  into: TagSummary
+  /** Photo tags moved across. */
+  moved: number
+  /** Photo tags dropped because that person already had the target tag on that photo. */
+  duplicates: number
 }
 
 export interface ListingNote {
