@@ -29,6 +29,28 @@ PlanBoard turns that scattered browsing into a shared, searchable library. You p
 
 It started as a small Python download script ([`reference/images_downloader.py`](reference/images_downloader.py)) and grew into a full desktop app.
 
+## Tech stack
+
+| Area | Tools |
+| --- | --- |
+| Desktop app | Electron 45 (macOS), electron-vite 6 and Vite 8 for builds, electron-builder for packaging |
+| User interface | React 19, TypeScript 6 in strict mode, hand-written CSS with design tokens, Marcellus and Jost fonts bundled via Fontsource |
+| Data | SQLite through better-sqlite3 13, step-up migrations on `PRAGMA user_version` |
+| Scraping and downloads | A hidden, Node-free Electron window running page scripts; Chromium's network stack (`net.fetch`); node-html-parser |
+| Testing and quality | Vitest 5 (345 tests), ESLint 10 with typescript-eslint and the React hooks rules, Prettier |
+| AI-assisted workflow | Claude Code, guided by a written spec, project rules and per-milestone progress logs |
+
+## Skills this project shows
+
+- **Desktop app architecture and security:** separate main and UI processes, a typed IPC bridge, validation of every request from the UI, and a custom file protocol with path checks ([`ipc.ts`](src/shared/ipc.ts), [`preload`](src/preload/index.ts), [`mediaProtocol.ts`](src/main/mediaProtocol.ts)).
+- **Data modelling and SQL:** a normalised schema with per-person records, transactions, upserts, migrations, and a tag merge that removes duplicates ([`db/`](src/main/db)).
+- **Reliable scraping and networking:** site-specific modules, retries with backoff, polite pacing, resumable downloads and a manual fallback when a site changes ([`scrapers/`](src/main/scrapers), [`capture/`](src/main/capture)).
+- **Algorithms:** fuzzy text matching with normalisation, simple plural handling, edit distance and ranked suggestions ([`tagMatch.ts`](src/shared/tagMatch.ts)).
+- **Front-end engineering:** React hooks, autosave with debouncing, an accessible auto-complete (ARIA combobox), a focus-trapped modal, keyboard navigation and a token-based design system ([`renderer/`](src/renderer/src)).
+- **Testing:** test-driven development, dependency injection so the network and file system can be faked, and redacted real-page fixtures ([`test/fixtures/`](test/fixtures)).
+- **Product and UX thinking:** a two-person workflow, milestone planning, and a visual identity carried through every screen ([`PROJECT_BRIEF.md`](PROJECT_BRIEF.md)).
+- **Working effectively with AI:** spec-first planning, written guardrails, small verified commits and resumable progress notes ([`CLAUDE.md`](CLAUDE.md), [`docs/progress/`](docs/progress)).
+
 ## Features
 
 <table>
