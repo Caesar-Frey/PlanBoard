@@ -8,6 +8,7 @@ import type {
   TagSummary,
   TrashReport
 } from '../../../shared/ipc'
+import { ROOMS } from '../../../shared/tagging'
 import { Modal } from '../components/Modal'
 import { Divider, SectionLabel } from '../components/Ornament'
 import { DetailsPanel } from './DetailsPanel'
@@ -54,6 +55,13 @@ export function ListingView({
   /** Remounts the details form with fresh values (only when it has no unsaved edits). */
   const [formKey, setFormKey] = useState(0)
   const dirty = useRef(false)
+  /** Bulk room mode: photos selected for setting one room at once. */
+  const [selecting, setSelecting] = useState(false)
+  const [selected, setSelected] = useState<ReadonlySet<number>>(() => new Set())
+  const lastSelected = useRef<number | null>(null)
+  const [bulkRoom, setBulkRoom] = useState('')
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkNote, setBulkNote] = useState<string | null>(null)
   /** Every tag in the library, for auto-complete. */
   const [tags, setTags] = useState<TagSummary[]>([])
 
@@ -71,6 +79,7 @@ export function ListingView({
     if (!dirty.current) setFormKey((k) => k + 1)
     const ids = new Set(next.photos.map((p) => p.id))
     setMarked((m) => new Set([...m].filter((id) => ids.has(id))))
+    setSelected((m) => new Set([...m].filter((id) => ids.has(id))))
     setPreview((i) => (i === null ? null : Math.min(i, next.photos.length - 1)))
   }, [])
 
@@ -136,6 +145,62 @@ export function ListingView({
         : d
     )
   }, [])
+
+  const photosRef = useRef<ListingData['photos']>([])
+  useEffect(() => {
+    photosRef.current = data?.photos ?? []
+  }, [data])
+
+  const select = useCallback((index: number, range: boolean) => {
+    const photos = photosRef.current
+    const photo = photos[index]
+    if (!photo) return
+    setBulkNote(null)
+    // Read before the update: the updater runs later, after the ref has moved on.
+    const from = lastSelected.current
+    setSelected((s) => {
+      const next = new Set(s)
+      if (range && from !== null && from !== index) {
+        const [a, b] = from < index ? [from, index] : [index, from]
+        for (const p of photos.slice(a, b + 1)) next.add(p.id)
+      } else if (next.has(photo.id)) next.delete(photo.id)
+      else next.add(photo.id)
+      return next
+    })
+    lastSelected.current = index
+  }, [])
+
+  const stopSelecting = (): void => {
+    setSelecting(false)
+    setSelected(new Set())
+    lastSelected.current = null
+    setBulkNote(null)
+  }
+
+  const applyBulkRoom = async (room: string | null): Promise<void> => {
+    if (selected.size === 0) return
+    setBulkBusy(true)
+    try {
+      const r = await window.planboard.setPhotoRoom({ photoIds: [...selected], room })
+      if (!r.ok) {
+        setActionError(r.error)
+        return
+      }
+      setActionError(null)
+      applyTagging(r.value)
+      setBulkNote(
+        room
+          ? `${plural(r.value.length, 'photo')} set to ${room}.`
+          : `Room cleared on ${plural(r.value.length, 'photo')}.`
+      )
+      setSelected(new Set())
+      lastSelected.current = null
+    } catch (err) {
+      setActionError(String(err))
+    } finally {
+      setBulkBusy(false)
+    }
+  }
 
   const toggle = useCallback((photoId: number) => {
     setTrashResult(null)
@@ -317,10 +382,27 @@ export function ListingView({
         <div className="listing__photos-head">
           <SectionLabel id="photos-heading">{`Photos · ${count}`}</SectionLabel>
           <span className="panel__help">
-            Click a photo for the large preview. Untick the ones you don’t want.
+            {selecting
+              ? 'Click photos to select them (Shift-click selects a run), then choose their room below.'
+              : 'Click a photo for the large preview to tag it. Untick the ones you don’t want.'}
           </span>
+          {count > 0 &&
+            (selecting ? (
+              <button type="button" className="pill" onClick={stopSelecting}>
+                Done setting rooms
+              </button>
+            ) : (
+              <button type="button" className="pill" onClick={() => setSelecting(true)}>
+                Set rooms for several
+              </button>
+            ))}
         </div>
         {trashResult && <TrashResultNote result={trashResult} />}
+        {bulkNote && (
+          <p className="alert" role="status">
+            {bulkNote}
+          </p>
+        )}
         {count === 0 ? (
           <div className="placeholder">
             <div className="gable-frame" aria-hidden="true">
@@ -331,9 +413,72 @@ export function ListingView({
             </p>
           </div>
         ) : (
-          <PhotoGrid photos={data.photos} marked={marked} onOpen={openPreview} onToggle={toggle} />
+          <PhotoGrid
+            photos={data.photos}
+            people={state.people}
+            marked={marked}
+            selecting={selecting}
+            selected={selected}
+            onOpen={openPreview}
+            onToggle={toggle}
+            onSelect={select}
+          />
         )}
       </div>
+
+      {selecting && (
+        <div
+          className="trash-bar room-bar"
+          role="region"
+          aria-label="Set the room of selected photos"
+        >
+          <span className="trash-bar__count">{plural(selected.size, 'photo')} selected</span>
+          <button
+            type="button"
+            className="pill pill--on-green"
+            onClick={() => {
+              setSelected(
+                selected.size === count ? new Set() : new Set(data.photos.map((p) => p.id))
+              )
+              lastSelected.current = null
+            }}
+          >
+            {selected.size === count ? 'Select none' : 'Select all'}
+          </button>
+          <label className="visually-hidden" htmlFor="bulk-room">
+            Room
+          </label>
+          <select
+            id="bulk-room"
+            className="room-bar__select"
+            value={bulkRoom}
+            onChange={(e) => setBulkRoom(e.target.value)}
+          >
+            <option value="">Choose a room…</option>
+            {ROOMS.map((room) => (
+              <option key={room} value={room}>
+                {room}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="pill pill--brass"
+            disabled={bulkBusy || selected.size === 0 || bulkRoom === ''}
+            onClick={() => void applyBulkRoom(bulkRoom)}
+          >
+            Set room
+          </button>
+          <button
+            type="button"
+            className="pill pill--on-green"
+            disabled={bulkBusy || selected.size === 0}
+            onClick={() => void applyBulkRoom(null)}
+          >
+            Clear room
+          </button>
+        </div>
+      )}
 
       {markedCount > 0 && (
         <div className="trash-bar" role="region" aria-label="Photos marked for removal">

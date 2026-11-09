@@ -1274,6 +1274,98 @@ code {
   color: var(--brass-text);
 }
 
+/* Room and marks under each thumbnail (milestone 5) */
+
+.photo-card__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-height: 24px;
+  padding-top: 6px;
+  font-size: 12px;
+}
+
+.photo-card__room {
+  font-weight: 600;
+  color: var(--bottle-green);
+}
+
+.photo-card__room--none {
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+
+.photo-card__tags {
+  color: var(--brass-text);
+}
+
+.photo-card__mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: var(--pill);
+  background: var(--cream-deep);
+  color: var(--ink);
+}
+
+.photo-card__mark .swatch {
+  width: 8px;
+  height: 8px;
+}
+
+/* Bulk room mode */
+
+.photo-card__open--select {
+  cursor: pointer;
+}
+
+.photo-card--selected {
+  border-color: var(--brass-dark);
+  outline: 2px solid var(--brass);
+}
+
+.photo-card__check {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid var(--cream);
+  background: var(--backdrop);
+  color: var(--bottle-green);
+  font-weight: 700;
+}
+
+.photo-card--selected .photo-card__check {
+  background: var(--brass);
+  border-color: var(--bottle-green);
+}
+
+.room-bar__select {
+  min-height: var(--touch);
+  padding: 0 14px;
+  border: 1px solid var(--brass);
+  border-radius: var(--pill);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+}
+
+.room-bar__select:focus-visible {
+  outline-color: var(--pale-brass);
+}
+
+.room-bar + .trash-bar {
+  margin-top: 8px;
+}
+
 /* Sticky bar while photos are marked */
 
 .trash-bar {
