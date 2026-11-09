@@ -365,6 +365,43 @@ export interface SaveNoteRequest {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Inspiration library (milestone 6)
+// ---------------------------------------------------------------------------------------------
+
+/** A listing in the library, with at least one photo that hasn't been removed. */
+export interface InspirationHouse {
+  id: number
+  site: SiteId
+  externalId: string
+  /** Short name for cards: the suburb (or title), made unique across the library. */
+  name: string
+  suburb: string | null
+  city: string | null
+  title: string | null
+  price: string | null
+  /** Folder name inside `<library>/listings/`. */
+  folderName: string
+  /** Photos not removed. */
+  photoCount: number
+  /** "Why we saved this house", per person. */
+  notes: ListingNote[]
+  createdAt: number
+}
+
+/** A photo that hasn't been removed. Same shape as `ListingPhoto`, plus its house. */
+export interface InspirationPhoto extends ListingPhoto {
+  listingId: number
+}
+
+/** Everything the library screen filters, searches and counts, in one load. */
+export interface InspirationSnapshot {
+  /** Newest survey first. */
+  houses: InspirationHouse[]
+  /** Grouped by house in `houses` order, then gallery order. */
+  photos: InspirationPhoto[]
+}
+
+// ---------------------------------------------------------------------------------------------
 // Quit guard
 // ---------------------------------------------------------------------------------------------
 
