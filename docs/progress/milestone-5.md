@@ -5,7 +5,7 @@ Resumable checklist. On resume: read this file and `git log`, continue at the fi
 ## Chunks
 
 - [x] (a) Shared rooms/marks + fuzzy tag matcher + db tagging queries (rename/merge), TDD — `shared/tagging.ts`, `shared/tagMatch.ts`, `main/db/tagging.ts`, `main/tagging/service.ts` (service done early; IPC wiring is (b)). 345 tests green.
-- [ ] (b) Tagging service (request checks, "Tagging as" guard) + IPC + preload typed methods
+- [x] (b) Tagging service + IPC + preload typed methods — 7 channels (setPhotoRoom, addPhotoTag, removePhotoTag, savePhotoNote, listTags, renameTag, mergeTags); ListingView photos now carry room, tags, notes.
 - [ ] (c) Large preview: tagging panel (room, tags with auto-complete, mark, notes)
 - [ ] (d) Grid: room/mark indicators + bulk room assignment
 - [ ] (e) Tag management (rename, merge, possible duplicates) in Settings

@@ -390,6 +390,13 @@ export const IPC = {
   trashPhotos: 'planboard:trash-photos',
   saveListingDetails: 'planboard:save-listing-details',
   saveListingNote: 'planboard:save-listing-note',
+  setPhotoRoom: 'planboard:set-photo-room',
+  addPhotoTag: 'planboard:add-photo-tag',
+  removePhotoTag: 'planboard:remove-photo-tag',
+  savePhotoNote: 'planboard:save-photo-note',
+  listTags: 'planboard:list-tags',
+  renameTag: 'planboard:rename-tag',
+  mergeTags: 'planboard:merge-tags',
   /** renderer → main (send): the listing view has, or no longer has, unsaved detail edits. */
   setUnsavedDetails: 'planboard:set-unsaved-details',
   /** main → renderer event carrying a `CloseKind`: ask before closing. */
@@ -423,6 +430,18 @@ export interface PlanBoardApi {
   saveListingDetails(request: SaveDetailsRequest): Promise<Result<SaveDetailsOutcome>>
   /** Saves the current person's "Why we saved this house" note. */
   saveListingNote(request: SaveNoteRequest): Promise<Result<ListingNote>>
+  /** Sets (or clears) the shared room of one or several photos. */
+  setPhotoRoom(request: SetRoomRequest): Promise<Result<PhotoTagging[]>>
+  /** Adds a feature tag for the person tagging; reuses an equivalent existing tag. */
+  addPhotoTag(request: AddPhotoTagRequest): Promise<Result<AddPhotoTagOutcome>>
+  /** Removes the person tagging's own tag from a photo. */
+  removePhotoTag(request: RemovePhotoTagRequest): Promise<Result<PhotoTagging>>
+  /** Saves the person tagging's mark, "What we like" or "Why" on a photo. */
+  savePhotoNote(request: SavePhotoNoteRequest): Promise<Result<PhotoNote>>
+  listTags(): Promise<Result<TagSummary[]>>
+  renameTag(request: RenameTagRequest): Promise<Result<RenameTagOutcome>>
+  /** Moves every use of one tag onto another and deletes the first. */
+  mergeTags(request: MergeTagsRequest): Promise<Result<MergeTagsOutcome>>
   /** Tells main whether quitting now would lose detail edits. */
   setUnsavedDetails(dirty: boolean): void
   /** Main is holding a close or quit for the unsaved details. Returns the unsubscribe function. */

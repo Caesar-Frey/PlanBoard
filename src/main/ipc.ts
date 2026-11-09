@@ -33,6 +33,16 @@ import {
   parseTrashRequest
 } from './listing/requests'
 import { trashPhotos } from './listing/trash'
+import {
+  addPhotoTagRequest,
+  listTags,
+  mergeTagsRequest,
+  removePhotoTagRequest,
+  renameTagRequest,
+  savePhotoNoteRequest,
+  setPhotoRoomRequest,
+  type TaggingContext
+} from './tagging/service'
 import { loadListingView } from './listing/view'
 import { mediaUrl } from './media'
 import { isKnownListingUrl, listingFolderPath } from './pathGuard'
@@ -422,6 +432,20 @@ export function registerIpc(getWindow: () => BrowserWindow | null): AppContext {
       return fail(err)
     }
   })
+
+  // Tagging (milestone 5). Checks and the "Tagging as" rule live in tagging/service.ts.
+  const tagging = (): TaggingContext => ({
+    db: ctx.db,
+    currentPersonId: ctx.settings.currentPersonId,
+    now: Date.now
+  })
+  handle(IPC.setPhotoRoom, (raw: unknown) => setPhotoRoomRequest(tagging(), raw))
+  handle(IPC.addPhotoTag, (raw: unknown) => addPhotoTagRequest(tagging(), raw))
+  handle(IPC.removePhotoTag, (raw: unknown) => removePhotoTagRequest(tagging(), raw))
+  handle(IPC.savePhotoNote, (raw: unknown) => savePhotoNoteRequest(tagging(), raw))
+  handle(IPC.listTags, () => listTags(tagging()))
+  handle(IPC.renameTag, (raw: unknown) => renameTagRequest(tagging(), raw))
+  handle(IPC.mergeTags, (raw: unknown) => mergeTagsRequest(tagging(), raw))
 
   handle(IPC.setCurrentPerson, (id: unknown): Result<AppState> => {
     if (typeof id !== 'number' || !Number.isInteger(id)) return { ok: false, error: 'Invalid id' }

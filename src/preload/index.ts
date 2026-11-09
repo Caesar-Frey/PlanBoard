@@ -27,6 +27,13 @@ const api: PlanBoardApi = {
   trashPhotos: (request) => ipcRenderer.invoke(IPC.trashPhotos, request),
   saveListingDetails: (request) => ipcRenderer.invoke(IPC.saveListingDetails, request),
   saveListingNote: (request) => ipcRenderer.invoke(IPC.saveListingNote, request),
+  setPhotoRoom: (request) => ipcRenderer.invoke(IPC.setPhotoRoom, request),
+  addPhotoTag: (request) => ipcRenderer.invoke(IPC.addPhotoTag, request),
+  removePhotoTag: (request) => ipcRenderer.invoke(IPC.removePhotoTag, request),
+  savePhotoNote: (request) => ipcRenderer.invoke(IPC.savePhotoNote, request),
+  listTags: () => ipcRenderer.invoke(IPC.listTags),
+  renameTag: (request) => ipcRenderer.invoke(IPC.renameTag, request),
+  mergeTags: (request) => ipcRenderer.invoke(IPC.mergeTags, request),
   setUnsavedDetails: (dirty) => ipcRenderer.send(IPC.setUnsavedDetails, dirty === true),
   onCloseRequested: (listener) => {
     const handler = (_event: IpcRendererEvent, kind: CloseKind): void => listener(kind)
