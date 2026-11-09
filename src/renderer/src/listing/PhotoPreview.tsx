@@ -1,23 +1,43 @@
-import type { ListingPhoto } from '../../../shared/ipc'
+import type { ListingPhoto, Person, PhotoNote, PhotoTagging, TagSummary } from '../../../shared/ipc'
 import { Modal } from '../components/Modal'
+import { TaggingPanel } from '../tagging/TaggingPanel'
 
 interface PhotoPreviewProps {
   photos: ListingPhoto[]
   index: number
   marked: ReadonlySet<number>
+  people: Person[]
+  currentPersonId: number | null
+  tags: TagSummary[]
   onIndex(index: number): void
   onToggle(photoId: number): void
   onClose(): void
+  onTagging(tagging: PhotoTagging): void
+  onTagsChanged(): void
+  onNoteSaved(photoId: number, note: PhotoNote): void
 }
 
-/** Large preview: ← / → or the buttons step through, Esc closes. */
+/** Typing in a field must never step to another photo. */
+const isTextEntry = (el: HTMLElement): boolean =>
+  el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)
+
+/**
+ * Large preview with the tagging panel beside the photo: ← / → or the buttons step through
+ * (not while typing in a field), Esc closes.
+ */
 export function PhotoPreview({
   photos,
   index,
   marked,
+  people,
+  currentPersonId,
+  tags,
   onIndex,
   onToggle,
-  onClose
+  onClose,
+  onTagging,
+  onTagsChanged,
+  onNoteSaved
 }: PhotoPreviewProps): React.JSX.Element | null {
   const photo = photos[index]
   if (!photo) return null
@@ -27,8 +47,7 @@ export function PhotoPreview({
   const hasNext = index < total - 1
 
   const keyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
-    // Leave arrow keys alone inside a text field (none today, but cheap to keep right).
-    if ((event.target as HTMLElement).tagName === 'INPUT') return
+    if (isTextEntry(event.target as HTMLElement)) return
     if (event.key === 'ArrowLeft' && hasPrev) {
       event.preventDefault()
       onIndex(index - 1)
@@ -54,28 +73,39 @@ export function PhotoPreview({
           Close
         </button>
       </div>
-      <div className={`preview__stage${isMarked ? ' preview__stage--marked' : ''}`}>
-        <button
-          type="button"
-          className="preview__step preview__step--prev"
-          onClick={() => onIndex(index - 1)}
-          disabled={!hasPrev}
-          aria-label="Previous photo"
-        >
-          ‹
-        </button>
-        <figure className="preview__figure">
-          <img key={photo.id} src={photo.url} alt={`Photo ${index + 1} of ${total}`} />
-        </figure>
-        <button
-          type="button"
-          className="preview__step preview__step--next"
-          onClick={() => onIndex(index + 1)}
-          disabled={!hasNext}
-          aria-label="Next photo"
-        >
-          ›
-        </button>
+      <div className="preview__body">
+        <div className={`preview__stage${isMarked ? ' preview__stage--marked' : ''}`}>
+          <button
+            type="button"
+            className="preview__step preview__step--prev"
+            onClick={() => onIndex(index - 1)}
+            disabled={!hasPrev}
+            aria-label="Previous photo"
+          >
+            ‹
+          </button>
+          <figure className="preview__figure">
+            <img key={photo.id} src={photo.url} alt={`Photo ${index + 1} of ${total}`} />
+          </figure>
+          <button
+            type="button"
+            className="preview__step preview__step--next"
+            onClick={() => onIndex(index + 1)}
+            disabled={!hasNext}
+            aria-label="Next photo"
+          >
+            ›
+          </button>
+        </div>
+        <TaggingPanel
+          photo={photo}
+          people={people}
+          currentPersonId={currentPersonId}
+          tags={tags}
+          onTagging={onTagging}
+          onTagsChanged={onTagsChanged}
+          onNoteSaved={onNoteSaved}
+        />
       </div>
       <div className="preview__foot">
         <span className="preview__file">{photo.fileName}</span>

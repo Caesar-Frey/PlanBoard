@@ -3,6 +3,9 @@ import type {
   AppState,
   ListingNote,
   ListingView as ListingData,
+  PhotoNote,
+  PhotoTagging,
+  TagSummary,
   TrashReport
 } from '../../../shared/ipc'
 import { Modal } from '../components/Modal'
@@ -51,6 +54,8 @@ export function ListingView({
   /** Remounts the details form with fresh values (only when it has no unsaved edits). */
   const [formKey, setFormKey] = useState(0)
   const dirty = useRef(false)
+  /** Every tag in the library, for auto-complete. */
+  const [tags, setTags] = useState<TagSummary[]>([])
 
   useEffect(() => {
     registerGuard(() => dirty.current)
@@ -84,6 +89,53 @@ export function ListingView({
       live = false
     }
   }, [listingId, captureRunning, applyView])
+
+  const loadTags = useCallback(() => {
+    window.planboard
+      .listTags()
+      .then((r) => {
+        if (r.ok) setTags(r.value)
+      })
+      .catch(() => undefined)
+  }, [])
+  useEffect(loadTags, [loadTags])
+
+  /** Applies tagging results from main to the photos they belong to. */
+  const applyTagging = useCallback((updates: PhotoTagging[]) => {
+    const byId = new Map(updates.map((u) => [u.photoId, u]))
+    setData((d) =>
+      d
+        ? {
+            ...d,
+            photos: d.photos.map((p) => {
+              const u = byId.get(p.id)
+              return u ? { ...p, room: u.room, tags: u.tags, notes: u.notes } : p
+            })
+          }
+        : d
+    )
+  }, [])
+  const applyOne = useCallback((t: PhotoTagging) => applyTagging([t]), [applyTagging])
+
+  const onPhotoNoteSaved = useCallback((photoId: number, note: PhotoNote) => {
+    setData((d) =>
+      d
+        ? {
+            ...d,
+            photos: d.photos.map((p) =>
+              p.id === photoId
+                ? {
+                    ...p,
+                    notes: [...p.notes.filter((n) => n.personId !== note.personId), note].sort(
+                      (a, b) => a.personId - b.personId
+                    )
+                  }
+                : p
+            )
+          }
+        : d
+    )
+  }, [])
 
   const toggle = useCallback((photoId: number) => {
     setTrashResult(null)
@@ -311,9 +363,15 @@ export function ListingView({
           photos={data.photos}
           index={preview}
           marked={marked}
+          people={state.people}
+          currentPersonId={state.settings.currentPersonId}
+          tags={tags}
           onIndex={setPreview}
           onToggle={toggle}
           onClose={() => setPreview(null)}
+          onTagging={applyOne}
+          onTagsChanged={loadTags}
+          onNoteSaved={onPhotoNoteSaved}
         />
       )}
 

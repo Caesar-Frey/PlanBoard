@@ -6,7 +6,7 @@ Resumable checklist. On resume: read this file and `git log`, continue at the fi
 
 - [x] (a) Shared rooms/marks + fuzzy tag matcher + db tagging queries (rename/merge), TDD — `shared/tagging.ts`, `shared/tagMatch.ts`, `main/db/tagging.ts`, `main/tagging/service.ts` (service done early; IPC wiring is (b)). 345 tests green.
 - [x] (b) Tagging service + IPC + preload typed methods — 7 channels (setPhotoRoom, addPhotoTag, removePhotoTag, savePhotoNote, listTags, renameTag, mergeTags); ListingView photos now carry room, tags, notes.
-- [ ] (c) Large preview: tagging panel (room, tags with auto-complete, mark, notes)
+- [x] (c) Large preview: tagging panel — `tagging/TaggingPanel.tsx`, `tagging/TagInput.tsx` (combobox), `components/useAutosave.ts`. Not yet checked in the app (see (f)).
 - [ ] (d) Grid: room/mark indicators + bulk room assignment
 - [ ] (e) Tag management (rename, merge, possible duplicates) in Settings
 - [ ] (f) Verification in the built app (scratch profile + scratch library), CLAUDE.md update
