@@ -26,4 +26,6 @@ PlanBoard-library/
 *.heic
 # README screenshots (a fictional demo library with Unsplash photos; see docs/screenshots/CREDITS.md)
 !docs/screenshots/*.jpg
+# App icon (rendered from build/icon.svg by scripts/make-icon.sh)
+!build/icon.png
 .gstack/

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PlanBoard app icon: the header's brass arched gable on bottle green.
+     Rendered to icon.png (1024 px) and icon.icns by `npm run icon`. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- macOS icon grid: 824 px rounded square centred on a 1024 px canvas -->
+  <rect x="100" y="100" width="824" height="824" rx="185" ry="185" fill="#1f3b33"/>
+  <!-- Double brass inner border (the header's double lines) -->
+  <rect x="134" y="134" width="756" height="756" rx="152" ry="152" fill="none" stroke="#c9a45c" stroke-width="8"/>
+  <rect x="152" y="152" width="720" height="720" rx="136" ry="136" fill="none" stroke="#b08a3e" stroke-width="3"/>
+  <!-- The gable from Header.tsx (viewBox 0 0 34 30), scaled ×18 -->
+  <g transform="translate(512 512) scale(18) translate(-17 -16)" fill="none" stroke="#c9a45c"
+     stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M4 29 V14 C4 9 8 9 8 6 C8 3 11 1 17 1 C23 1 26 3 26 6 C26 9 30 9 30 14 V29 Z" fill="#2c5045"/>
+    <path d="M13 29 V21 A4 4 0 0 1 21 21 V29"/>
+    <!-- ◆ ornament in the gable -->
+    <path d="M17 8.2 L19 10.5 L17 12.8 L15 10.5 Z" fill="#c9a45c" stroke-width="0.6"/>
+  </g>
+  <!-- Ground line under the gable -->
+  <line x1="290" y1="782" x2="734" y2="782" stroke="#c9a45c" stroke-width="10" stroke-linecap="round"/>
+</svg>
