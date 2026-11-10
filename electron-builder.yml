@@ -1,22 +1,54 @@
-# Packaging config. Building the .dmg is milestone 7 (`npx electron-builder --mac`).
+# Packaging config: `npm run build:mac` → dist/PlanBoard-<version>-arm64.dmg
 appId: com.planboard.app
 productName: PlanBoard
+copyright: Copyright © 2026 PlanBoard contributors
 directories:
-  output: release
+  output: dist
   buildResources: build
 files:
   - out/**
   - package.json
   - '!**/*.{ts,tsx,map}'
+  # better-sqlite3 picks prebuilds/<platform>-<arch>.node at run time. Keep only the two Mac
+  # binaries; its C sources (deps/, src/) are only for building from source.
+  - '!node_modules/better-sqlite3/prebuilds/{win32,linux,linuxmusl}-*'
+  - '!node_modules/better-sqlite3/{deps,src}/**'
+# better-sqlite3's native .node file can't be loaded from inside app.asar, so it is unpacked.
 asarUnpack:
   - node_modules/better-sqlite3/**
 mac:
   target:
+    # Apple Silicon only (the Mac this is built and tested on). better-sqlite3 also ships a
+    # darwin-x64 binary, so `npx electron-builder --mac --x64` should work for an Intel Mac,
+    # but that build is untested. A universal build would roughly double the download.
     - target: dmg
+      arch: [arm64]
+  icon: build/icon.icns
   category: public.app-category.lifestyle
-  # Unsigned build for personal use: first launch needs right-click > Open.
-  identity: null
+  # Ad-hoc signature ("-"): no Apple Developer ID, no notarisation. Without it the bundle's
+  # seal is broken and Apple Silicon Macs call a downloaded copy "damaged". First launch still
+  # needs System Settings → Privacy & Security → Open Anyway (see the README).
+  identity: '-'
+  # The hardened runtime is only needed for notarisation, and with an ad-hoc signature its
+  # library validation would stop the app loading its own frameworks and better-sqlite3.
+  hardenedRuntime: false
 dmg:
+  title: ${productName} ${version}
+  # No auto-updater, so no .blockmap next to the dmg.
+  writeUpdateInfo: false
   artifactName: ${productName}-${version}-${arch}.dmg
+  window:
+    width: 540
+    height: 380
+  contents:
+    - x: 140
+      y: 190
+      type: file
+    - x: 400
+      y: 190
+      type: link
+      path: /Applications
+# No auto-update feed (no app-update.yml inside the app).
+publish: null
 # better-sqlite3 v13 is a Node-API addon with prebuilt binaries, so no Electron rebuild is needed.
 npmRebuild: false

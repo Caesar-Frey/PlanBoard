@@ -9,6 +9,8 @@
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
     "start": "electron-vite preview",
+    "build:mac": "npm run build && electron-builder --mac",
+    "icon": "sh scripts/make-icon.sh",
     "scrape": "electron-vite build --logLevel warn && electron . --scrape",
     "test": "vitest run",
     "test:watch": "vitest",
