@@ -17,6 +17,8 @@ Save property listings, keep every photo, and tag what you love: room by room, f
 
 <sub>Tagging a kitchen photo. Typing “marble island” suggests the existing <b>Island</b> tag before creating a near-copy.</sub>
 
+**[Install the app](#install)** · [Build from source](#build-from-source) · [Known limitations](#known-limitations)
+
 </div>
 
 ---
@@ -33,7 +35,7 @@ It started as a small Python download script ([`reference/images_downloader.py`]
 
 | Area | Tools |
 | --- | --- |
-| Desktop app | Electron 45 (macOS), electron-vite 6 and Vite 8 for builds, electron-builder for packaging |
+| Desktop app | Electron 45 (macOS), electron-vite 6 and Vite 8 for builds, electron-builder for the `.dmg` |
 | User interface | React 19, TypeScript 6 in strict mode, hand-written CSS with design tokens, Marcellus and Jost fonts bundled via Fontsource |
 | Data | SQLite through better-sqlite3 13, step-up migrations on `PRAGMA user_version` |
 | Scraping and downloads | A hidden, Node-free Electron window running page scripts; Chromium's network stack (`net.fetch`); node-html-parser |
@@ -189,25 +191,82 @@ I'm an AI-assisted builder: I set the direction, make the product and design dec
 | 4. Listing view: preview, remove to Trash, edit details | ✅ |
 | 5. Tagging: rooms, feature tags, marks, notes | ✅ |
 | 6. Inspiration library: filters, search, “where features coincide” insights | ✅ |
-| 7. Packaged `.dmg` | ⏳ next |
+| 7. Packaged `.dmg` with install steps | ✅ |
 
-## Run it locally
+## Install
 
-Needs macOS and Node.js 22.12 or newer.
+PlanBoard runs on **Macs with Apple Silicon** (M1 or later). It is a personal project, so the app is not signed with an Apple Developer ID or notarised by Apple. macOS will block it the first time, and you allow it once.
+
+1. Get `PlanBoard-0.1.0-arm64.dmg` (about 120 MB) from the [Releases](https://github.com/Caesar-Frey/PlanBoard/releases) page, or build it yourself (see [Build from source](#build-from-source)).
+2. Double-click the `.dmg` and drag **PlanBoard** onto the **Applications** folder. Then eject the disk image.
+3. Open PlanBoard from Applications. macOS says it can't verify the app. Click **Done** (not *Move to Trash*).
+4. Open **System Settings → Privacy & Security** and scroll down to **Security**. Next to *“PlanBoard” was blocked to protect your Mac*, click **Open Anyway** and confirm with your password or Touch ID.
+5. Open PlanBoard again and click **Open Anyway** in the dialog. From now on it opens like any other app.
+
+On older macOS versions you can instead Control-click the app, choose **Open**, then click **Open**. macOS 15 (Sequoia) and later no longer offer this shortcut, so use the steps above.
+
+**Terminal alternative.** If you prefer, run this once after copying the app to Applications:
 
 ```bash
-git clone <this repo>
-cd planboard
-npm install     # also downloads Electron and prepares the SQLite module
-npm run dev     # opens the app with hot reload
+xattr -dr com.apple.quarantine /Applications/PlanBoard.app
 ```
 
+When a browser or AirDrop saves a file, macOS tags it with a “quarantine” attribute, and Gatekeeper checks every tagged app before its first launch. `xattr -d` deletes that attribute, and `-r` does it for every file inside the app bundle. Gatekeeper then treats PlanBoard like an app you built yourself. Only do this for apps you trust.
+
+## Where your data lives
+
+| What | Where |
+| --- | --- |
+| Your library: the database (`planboard.db`), and one folder per house with its photos and `Property_Details.txt` | `~/Pictures/PlanBoard` by default. Choose another folder with **Change folder** on the Capture screen or in Settings. |
+| App settings: which library folder is open and who is “Tagging as” | `~/Library/Application Support/PlanBoard/settings.json` |
+| The two people, their tags, marks and notes | Inside `planboard.db`, so they move with the library |
+
+To back up or move everything, copy the library folder. Uninstalling the app (dragging it to the Trash) leaves your library alone.
+
+**Sharing a library between two Macs.** You can put the library folder in a shared iCloud Drive or Dropbox folder, but **only one person should have PlanBoard open at a time.** The database is a single SQLite file, and sync services can't merge two copies that were changed at once: one person's edits would be lost or the file could be damaged. Quit PlanBoard and let the folder finish syncing before the other person opens it. On one shared Mac, simply switch **Tagging as** in the header.
+
+## Build from source
+
+Needs macOS and Node.js 22.12 or newer (check with `node -v`).
+
 ```bash
-npm test            # 391 unit tests
+git clone https://github.com/Caesar-Frey/PlanBoard.git
+cd PlanBoard
+npm install
+```
+
+`git clone` downloads the code. `npm install` installs the packages, then downloads the Electron runtime and prepares the SQLite module for it.
+
+```bash
+npm run dev
+```
+
+Opens the app with hot reload: edits to the UI show up straight away. Logs from the main process print in the terminal.
+
+```bash
+npm run build:mac
+```
+
+Builds the installer. It typechecks and compiles the app into `out/`, then electron-builder packs it with the Electron runtime and writes `dist/PlanBoard-<version>-arm64.dmg`. The app gets a free “ad-hoc” signature (no Apple account) so its files can be checked for tampering, but it is not notarised, so the install steps above still apply. The `dist/` folder also holds the unpacked app in `dist/mac-arm64/`.
+
+Other commands:
+
+```bash
+npm test            # unit tests (Vitest)
 npm run typecheck   # TypeScript, main and renderer
 npm run lint        # ESLint
-npm run build       # typecheck, then compile into out/
+npm run icon        # re-render build/icon.png and build/icon.icns from build/icon.svg
 ```
+
+Building for an Intel Mac (`npx electron-builder --mac --x64` after `npm run build`) should work, because the SQLite module ships Intel binaries too, but it hasn't been tested.
+
+## Known limitations
+
+- **Agent phone numbers.** Both sites hide the agent's number behind a “Show number” button that opens a CAPTCHA check. PlanBoard never clicks it, so it only saves the phone and email links a listing shows openly.
+- **Site redesigns.** Scrapers read each site's current page layout. If Property24 or Private Property change theirs, a survey can fail. PlanBoard then shows a clear message and a manual fallback: copy the image addresses from the listing in your browser, paste them in, and PlanBoard downloads them into the same folder layout.
+- **One listing at a time.** By design (see [Responsible use](#responsible-use)): no search pages, no bulk imports.
+- **Apple Silicon only, unsigned.** See [Install](#install).
+- **One writer at a time** for a shared library (see [Where your data lives](#where-your-data-lives)).
 
 ## Project structure
 
